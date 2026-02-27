@@ -8,7 +8,7 @@ const metricsProcesses = new Map()
 
 function startServer() {
   if (app.isPackaged) {
-    const serverPath = path.join(process.resourcesPath, "server-backend.js")
+    const serverPath = path.join(process.resourcesPath, "server-backend.cjs")
     console.log(`Starting backend server from: ${serverPath}`)
     serverProcess = fork(serverPath)
 

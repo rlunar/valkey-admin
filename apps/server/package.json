@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "npx tsx --enable-source-maps src/index.ts",
     "build": "tsup src/index.ts --format esm --dts --out-dir dist --clean",
+    "build:vite": "vite build --config vite.config.ts",
     "lint": "eslint .",
     "test": "npx tsx --test src/**/*.test.ts",
     "test:watch": "npx tsx --test --watch src/**/*.test.ts",

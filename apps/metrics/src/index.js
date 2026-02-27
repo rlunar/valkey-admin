@@ -4,6 +4,7 @@ import { GlideClient } from "@valkey/valkey-glide"
 import net from "net"
 import { defer, timer, firstValueFrom } from "rxjs"
 import { retry, map } from "rxjs/operators"
+import tls from "tls"
 import { getConfig, updateConfig } from "./config.js"
 import * as Streamer from "./effects/ndjson-streamer.js"
 import { setupCollectors, stopCollectors } from "./init-collectors.js"
@@ -16,29 +17,55 @@ import memoryFold from "./analyzers/memory-metrics.js"
 import { cpuQuerySchema, memoryQuerySchema, parseQuery } from "./api-schema.js"
 import { sanitizeUrl } from "./utils/helpers.js"
 
-export const checkValkeyTcp = ({ host = "localhost", port = 6379, timeout = 1000 }) =>
+export const checkValkeyPing = ({ host = "localhost", port = 6379, useTLS = false }) =>
   new Promise((resolve) => {
-    const socket = new net.Socket()
+    let socket
 
-    socket.setTimeout(timeout)
+    try {
+      if (useTLS) {
+        socket = tls.connect({ host, port, rejectUnauthorized: false }, () => {
+          try {
+            socket.write("*1\r\n$4\r\nPING\r\n")
+          } catch {
+            resolve(false)
+            socket.destroy()
+          }
+        })
+      } else {
+        socket = new net.Socket()
+        socket.connect(port, host, () => {
+          try {
+            socket.write("*1\r\n$4\r\nPING\r\n")
+          } catch {
+            resolve(false)
+            socket.destroy()
+          }
+        })
+      }
 
-    socket.once("connect", () => {
-      socket.destroy()
-      resolve(true)
-    })
+      socket.on("data", (data) => {
+        socket.destroy()
+        const str = data.toString()
+        resolve(str.includes("PONG") || str.includes("NOAUTH"))
+      })
 
-    socket.once("error", () => resolve(false))
-    socket.once("timeout", () => resolve(false))
+      socket.on("error", () => resolve(false))
+      socket.on("timeout", () => {
+        socket.destroy()
+        resolve(false)
+      })
 
-    socket.connect(port, host)
+    } catch {
+      resolve(false)
+    }
   })
 
 export const waitForValkey = async (
-  { host, port },
+  { host, port, useTLS },
   { retries = 30, delayMs = 1000 } = {},
 ) => {
   const attempt$ = defer(() =>
-    checkValkeyTcp({ host, port }),
+    checkValkeyPing({ host, port, useTLS }),
   ).pipe(
     map((isUp) => {
       if (!isUp) {
@@ -78,7 +105,7 @@ async function main() {
     } : undefined
 
   const useTLS = process.env.VALKEY_TLS === "true"
-  const isReady = await waitForValkey({ host: addresses[0].host, port: addresses[0].port })  
+  const isReady = await waitForValkey({ host: addresses[0].host, port: addresses[0].port, useTLS }) 
   if (!isReady) {
     console.error("Valkey is not reachable")
     process.exit(1)
