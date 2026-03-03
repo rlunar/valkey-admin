@@ -8,7 +8,7 @@ export const useShortcutNavigation = () => {
   const isConnected = useIsConnected()
 
   useEffect(() => {
-    // only works when running in electron
+    // only works when running in Electron
     if (!window.electronNavigation) return
 
     const handleNavigate = (route: string) => {
