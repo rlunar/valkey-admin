@@ -12,8 +12,12 @@ volumes:
   valkey-7005:
   valkey-7006:
 
-services:
+x-metrics-uris: &metrics_uris >
+  {"valkey-7001-7001":"metrics-7001:3000",
+   "valkey-7002-7002":"metrics-7002:3000",
+   "valkey-7003-7003":"metrics-7003:3000"}
 
+services:
   # ---------------- Valkey Cluster Nodes ----------------
   valkey-7001:
     image: valkey/valkey-bundle:latest
@@ -321,6 +325,7 @@ services:
       dockerfile: ./docker/Dockerfile.app
     environment:
       NODE_ENV: production
+      METRICS_SERVER_URIS: *metrics_uris
     ports:
       - "8080:8080"
     networks:
@@ -335,3 +340,4 @@ services:
       - valkey-7004
       - valkey-7005
       - valkey-7006
+      

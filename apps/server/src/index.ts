@@ -1,7 +1,6 @@
 import { WebSocket, WebSocketServer } from "ws"
 import {  GlideClient, GlideClusterClient } from "@valkey/valkey-glide"
 import express from "express"
-import fs from "fs"
 import path from "path"
 import http from "http"
 import { VALKEY } from "valkey-common"
@@ -33,9 +32,7 @@ interface MetricsServerMessage {
     serverConnectionId: string
   }
 }
-interface Config {
-  metrics_server_uris: Record<string, string>;
-}
+
 const app = express()
 const port = Number(process.env.PORT) || 8080
 const server = http.createServer(app)
@@ -89,10 +86,13 @@ wss.on("connection", (ws: WebSocket) => {
     [VALKEY.CPU.cpuUsageRequested]: cpuUsageRequested,
     [VALKEY.MEMORY.memoryUsageRequested]: memoryUsageRequested,
   }
-  const configPath = process.env.CONFIG_PATH || path.join(__dirname, "config.json")
-  const raw = fs.readFileSync(configPath, "utf-8")
-  const config: Config = JSON.parse(raw)
-  for (const [serverConnectionId, metricsServerURI] of Object.entries(config.metrics_server_uris)) {
+  type MetricsUriMap = Record<string, string>;
+
+  const metricsUriMap: MetricsUriMap = JSON.parse(
+    process.env.METRICS_SERVER_URIS || "{}",
+  )
+  
+  for (const [serverConnectionId, metricsServerURI] of Object.entries(metricsUriMap)) {
     metricsServerURIs.set(serverConnectionId, metricsServerURI)
   }
   process.on("message", (message: MetricsServerMessage ) => {
