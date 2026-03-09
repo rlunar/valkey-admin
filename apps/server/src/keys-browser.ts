@@ -6,12 +6,14 @@ import {
   RouteOption, 
   ConnectionError, 
   TimeoutError, 
-  ClosingError 
+  ClosingError, 
+  GlideReturnType
 } from "@valkey/valkey-glide"
 import pLimit from "p-limit"
 import { VALKEY, VALKEY_CLIENT } from "../../../common/src/constants.ts"
 import { buildScanCommandArgs } from "./valkey-client-commands.ts"
 import { formatBytes } from "../../../common/src/bytes-conversion.ts"
+import { getHumanReadableElement } from "./utils.ts"
 
 interface EnrichedKeyInfo {
   name: string;
@@ -29,8 +31,7 @@ async function getScanKeyInfo(
   commands: { sizeCmd: string; elementsCmd: string[] },
 ): Promise<EnrichedKeyInfo> {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const results = new Set<any>()
+    const results = new Set<string | { key: string; value: string }>()
     const isHash = keyInfo.type.toLowerCase() === "hash"
     let cursor = "0"
     
@@ -40,17 +41,16 @@ async function getScanKeyInfo(
       client.customCommand([commands.sizeCmd, keyInfo.name]),
       (async () => {
         do {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const [newCursor, elements] = await client.customCommand([...commands.elementsCmd, cursor]) as [string, any[]]
+          const [newCursor, elements] = await client.customCommand([...commands.elementsCmd, cursor]) as [string, GlideReturnType[]]
 
           if (isHash) {
             // Hash key types require constructing an object from a flat array.
             // i.e. converting [key1, value1...] to [{key: key1, value}]
             for (let i = 0; i < elements.length; i += 2){
-              results.add({ key: elements[i], value: elements[i + 1] })
+              results.add({ key: getHumanReadableElement(elements[i]), value: getHumanReadableElement(elements[i + 1]) })
             }
           } else {
-            elements.forEach((element) => results.add(element))
+            elements.forEach((element) => results.add(getHumanReadableElement(element)))
           }
           cursor = newCursor
         } while (cursor !== "0")
@@ -86,13 +86,13 @@ async function getFullKeyInfo(
       return {
         ...keyInfo,
         collectionSize: results[1] as number,
-        elements: results[0],
+        elements: getHumanReadableElement(results[0]),
       }
     } else {
       // in case of string with no collectionSize
       return {
         ...keyInfo,
-        elements: results[0],
+        elements: getHumanReadableElement(results[0]),
       }
     }
   } catch (err) {

@@ -131,6 +131,10 @@ export const VALKEY_CLIENT = {
     defaultCount: 50,
   } ,
   KEY_VALUE_SIZE_LIMIT: 2048, // 2KiB
+  HUMAN_READABLE: {
+    ACCEPTABLE_PRINTABLE_RATIO: 0.90,
+    NOT_READABLE_MESSAGE: "Not human readable",
+  }
 }
 export const COMMANDLOG_TYPE = {
   SLOW: "slow",

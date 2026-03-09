@@ -1,7 +1,8 @@
-import { ClusterResponse, GlideClient, GlideClusterClient } from "@valkey/valkey-glide"
+import { ClusterResponse, GlideClient, GlideClusterClient, GlideReturnType } from "@valkey/valkey-glide"
 import * as R from "ramda"
 import { lookup, reverse } from "node:dns/promises"
 import { sanitizeUrl } from "../../../common/src/url-utils"
+import { VALKEY_CLIENT } from "../../../common/src/constants"
 
 export const dns = {
   lookup,
@@ -140,4 +141,43 @@ export async function isLastConnectedClusterNode(
   const connection = clients.get(connectionId)
   const currentClusterId = connection?.clusterId
   return clusterNodesMap.get(currentClusterId!)?.length === 1
+}
+
+const isReadableString = (str: string): boolean => {
+  return !str.includes('\uFFFD'); // Unicode replacement character when decoding fails
+}
+
+const getPrintableRatio = (str: string): number => {
+  if (str.length === 0) return 1;
+
+  const printableCount = [...str].filter(
+    (char) => {
+      const code = char.charCodeAt(0)
+      
+      return (
+          (code >= 32 && code <= 126) // letters, numbers, punctuations
+          || code === 9 // Tab
+          || code === 10 // Line Feed
+          || code === 13 // Carriage return
+      )
+    }
+  ).length
+
+  return printableCount / str.length;
+}
+
+export const isHumanReadable = (data: GlideReturnType): boolean => {
+  if (typeof data !== 'string') {
+    return false;
+  }
+
+  return isReadableString(data)
+   && getPrintableRatio(data) >= VALKEY_CLIENT.HUMAN_READABLE.ACCEPTABLE_PRINTABLE_RATIO;
+}
+
+export const getHumanReadableElement = (element: GlideReturnType): string => {
+  if (typeof element !== "string" || !isHumanReadable(element)){
+    return VALKEY_CLIENT.HUMAN_READABLE.NOT_READABLE_MESSAGE;
+  }
+  return element as string;
 }
