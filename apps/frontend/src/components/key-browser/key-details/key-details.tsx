@@ -1,4 +1,4 @@
-import { Key, Trash, X } from "lucide-react"
+import { Key, Trash, TriangleAlert, X } from "lucide-react"
 import { useState } from "react"
 import { convertTTL } from "@common/src/ttl-conversion"
 import { formatBytes } from "@common/src/bytes-conversion"
@@ -17,6 +17,7 @@ import { useAppDispatch } from "@/hooks/hooks"
 import { deleteKeyRequested } from "@/state/valkey-features/keys/keyBrowserSlice"
 import { CustomTooltip } from "@/components/ui/tooltip"
 import { Typography } from "@/components/ui/typography"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
 interface BaseKeyInfo {
   name: string;
@@ -157,9 +158,11 @@ export default function KeyDetails({ selectedKey, selectedKeyInfo, connectionId,
             </div>
 
             {selectedKeyInfo.elementsWarning ? (
-              <div className="text-center text-muted-foreground py-8">
-                <Typography variant="bodySm">{selectedKeyInfo.elementsWarning}</Typography>
-              </div>
+              <Alert variant="warning">
+                <TriangleAlert className="w-4 h-4" />
+                <AlertDescription>{selectedKeyInfo.elementsWarning}
+                </AlertDescription>
+              </Alert>
             ) : (
               <>
                 {/* show different key types */}
