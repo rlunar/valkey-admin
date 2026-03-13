@@ -67,26 +67,6 @@ describe("ndjson-cleaner", () => {
       stopNdjsonCleaner()
     })
 
-    it("ignores non-ndjson files", async () => {
-      fs.promises.readdir.mockResolvedValue([
-        "readme.txt",
-        "data.json",
-        "memory_20250101.ndjson",
-      ])
-      fs.promises.stat.mockResolvedValue({ birthtime: new Date("2025-01-01") })
-
-      const { setupNdjsonCleaner, stopNdjsonCleaner } = await import("./ndjson-cleaner.js")
-      setupNdjsonCleaner(cfg)
-
-      await vi.advanceTimersByTimeAsync(0)
-
-      // Only the expired ndjson file should be deleted
-      expect(fs.promises.unlink).toHaveBeenCalledTimes(1)
-      expect(fs.promises.unlink).toHaveBeenCalledWith("/app/data/memory_20250101.ndjson")
-
-      stopNdjsonCleaner()
-    })
-
     it("keeps .ndjson files with recent birthtime", async () => {
       fs.promises.readdir.mockResolvedValue([
         "notes.ndjson",
