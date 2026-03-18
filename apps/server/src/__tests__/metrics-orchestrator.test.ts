@@ -7,9 +7,10 @@ import {
   stopAllMetricsServers,
   reconcileClusterMetricsServers,
   clients,
-  __test__ 
+  __test__,
+  type ClusterNodeMap, 
+  type MetricsServerMap 
 } from "../metrics-orchestrator"
-import type { ClusterNodeMap, MetricsServerMap } from "../metrics-orchestrator"
 import type { ConnectionDetails } from "../actions/connection"
 
 const clusterNodesRegistry = {
