@@ -1,5 +1,5 @@
 import { type WebSocket } from "ws"
-import { VALKEY } from "../../../../common/src/constants"
+import { VALKEY } from "valkey-common"
 import { Deps, withDeps } from "./utils"
 
 interface ParsedResponse  {
@@ -10,12 +10,12 @@ interface ParsedResponse  {
 }
 
 export const updateConfig = withDeps<Deps, void>(
-  async ({ ws, metricsServerURIs, action, clusterNodesMap }) => {
+  async ({ ws, metricsServerMap, action, clusterNodesMap }) => {
     const { connectionId, clusterId, config } = action.payload
     const connectionIds = clusterId ? clusterNodesMap.get(clusterId as string) ?? [] : [connectionId]
 
     const promises = connectionIds.map(async (connectionId: string) => {
-      const metricsServerURI = metricsServerURIs.get(connectionId)
+      const metricsServerURI = metricsServerMap.get(connectionId)?.metricsURI
       const url = new URL("/update-config", metricsServerURI)
       try {
         const response = await fetch(url.toString(), {
