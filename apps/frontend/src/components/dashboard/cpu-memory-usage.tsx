@@ -13,14 +13,6 @@ import { cpuUsageRequested, selectCpuUsage } from "@/state/valkey-features/cpu/c
 import { useAppDispatch } from "@/hooks/hooks"
 import { memoryUsageRequested, selectMemoryUsage } from "@/state/valkey-features/memory/memorySlice"
 
-const colors = [
-  "var(--chart-1)",
-  "var(--chart-2)",
-  "var(--chart-3)",
-  "var(--chart-4)",
-  "var(--chart-5)",
-]
-
 type ChartType = "cpu" | { type: "memory"; key: string }
 
 export default function CpuMemoryUsage() {
@@ -148,14 +140,6 @@ export default function CpuMemoryUsage() {
         <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
           {filteredCharts.map((chart) => (
             <ChartTile
-              chartColor={
-                chart.chartType === "cpu"
-                  ? "var(--chart-1)"
-                  : colors[
-                    memoryMetrics.findIndex(([key]) => key === chart.id) %
-                  colors.length
-                  ]
-              }
               chartData={
                 chart.chartType === "cpu"
                   ? cpuUsageData || []
@@ -221,12 +205,6 @@ export default function CpuMemoryUsage() {
           title={formatMetricName(openChart.key)}
         >
           <AreaChartComponent
-            color={
-              colors[
-                memoryMetrics.findIndex(([key]) => key === openChart.key) %
-              colors.length
-              ]
-            }
             data={
               memoryMetrics.find(([key]) => key === openChart.key)?.[1]?.series || []
             }
