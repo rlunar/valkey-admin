@@ -1,8 +1,7 @@
 import fs from "node:fs"
 import path from "node:path"
 import * as R from "ramda"
-
-const dayStr = (ts) => new Date(ts).toISOString().slice(0, 10).replace(/-/g, "")
+import { dayStr, parseSeq } from "../utils/helpers.js"
 
 const discoverMaxSeq = async (dataDir, filePrefix, day) => {
   const fileNames = await fs.promises.readdir(dataDir).catch(() => [])
@@ -18,9 +17,18 @@ const discoverMaxSeq = async (dataDir, filePrefix, day) => {
 
 const listPrefixFiles = async (dataDir, filePrefix) => {
   const fileNames = await fs.promises.readdir(dataDir).catch(() => [])
-  return fileNames
-    .filter((f) => f.startsWith(`${filePrefix}_`) && f.endsWith(".ndjson"))
-    .sort()
+  const matched = fileNames.filter((f) => f.startsWith(`${filePrefix}_`) && f.endsWith(".ndjson"))
+
+  const withStats = await Promise.all(
+    matched.map(async (fileName) => {
+      const stat = await fs.promises.stat(path.join(dataDir, fileName))
+      return { fileName, birthtime: stat.birthtime, seq: parseSeq(fileName) }
+    }),
+  )
+
+  return withStats
+    .sort((a, b) => a.birthtime - b.birthtime || a.seq - b.seq)
+    .map(({ fileName }) => fileName)
 }
 
 export const makeNdjsonWriter = ({ dataDir, filePrefix, maxFiles, maxFileSize }) => {
@@ -44,7 +52,7 @@ export const makeNdjsonWriter = ({ dataDir, filePrefix, maxFiles, maxFileSize })
     return { file: currentFile, size: currentSize }
   }
 
-  const rotate = async () => {
+  const evictOldest = async () => {
     const files = await listPrefixFiles(dataDir, filePrefix)
     let toDelete = files.length - maxFiles + 1 // +1 to make room for the new file
     for (const f of files) {
@@ -57,7 +65,7 @@ export const makeNdjsonWriter = ({ dataDir, filePrefix, maxFiles, maxFileSize })
   const advanceSeq = async () => {
     const prefixFiles = await listPrefixFiles(dataDir, filePrefix)
     if (prefixFiles.length >= maxFiles) {
-      await rotate()
+      await evictOldest()
     }
     seq++
   }

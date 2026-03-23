@@ -2,28 +2,27 @@ import fs from "node:fs"
 import readline from "node:readline"
 import path from "node:path"
 import { COMMANDLOG_LARGE_REPLY, COMMANDLOG_LARGE_REQUEST, COMMANDLOG_SLOW, MONITOR } from "../utils/constants.js"
+import { dayStr, parseSeq } from "../utils/helpers.js"
 
 const DATA_DIR = process.env.DATA_DIR || path.resolve(process.cwd(), "data")
 
-const dayStr = (date) => date.toISOString().slice(0, 10).replace(/-/g, "")
-
-const parseFile = (f) => {
-  const m = f.match(/_(\d{8})(?:_(\d+))?\.ndjson$/)
-  return m ? { date: Number(m[1]), seq: Number(m[2] ?? 0) } : null
-}
-
 const filesFor = async (prefix, dates) => {
-  return (await fs.promises.readdir(DATA_DIR))
-    // filter by date and prefix
-    .filter((file) => dates.some((date) => file.startsWith(`${prefix}_${dayStr(date)}`)))
-    // sort by date then sequence number
-    .sort((a, b) => {
-      const pa = parseFile(a)
-      const pb = parseFile(b)
-      if (!pa || !pb) return 0
-      return pa.date - pb.date || pa.seq - pb.seq
-    })
-    .map((file) => path.join(DATA_DIR, file))
+  const dayStrs = new Set(dates.map(dayStr))
+  const allFiles = (await fs.promises.readdir(DATA_DIR))
+    .filter((file) => file.startsWith(`${prefix}_`) && file.endsWith(".ndjson"))
+
+  const withStatsSeq = await Promise.all(
+    allFiles.map(async (file) => {
+      const filePath = path.join(DATA_DIR, file)
+      const stat = await fs.promises.stat(filePath)
+      return { file, filePath, birthtime: stat.birthtime, seq: parseSeq(file) }
+    }),
+  )
+
+  return withStatsSeq
+    .filter(({ birthtime }) => dayStrs.has(dayStr(birthtime)))
+    .sort((a, b) => a.birthtime - b.birthtime || a.seq - b.seq)
+    .map(({ fileWithstats }) => fileWithstats)
 }
 
 // streamNdjson is a transducer-inspired streaming fold, which means you can apply filter, map, reduce to the stream
