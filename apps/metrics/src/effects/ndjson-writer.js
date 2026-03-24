@@ -54,12 +54,15 @@ export const makeNdjsonWriter = ({ dataDir, filePrefix, maxFiles, maxFileSize })
 
   const evictOldest = async () => {
     const files = await listPrefixFiles(dataDir, filePrefix)
-    let toDelete = files.length - maxFiles + 1 // +1 to make room for the new file
-    for (const f of files) {
-      if (toDelete <= 0) break
-      await fs.promises.unlink(path.join(dataDir, f)).catch(() => {})
-      toDelete--
-    }
+    const toDeleteCount = Math.max(0, files.length - maxFiles + 1) // +1 to make room for the new file
+    
+    const toDelete = files.slice(0, toDeleteCount)
+
+    await Promise.all(
+      toDelete.map((f) =>
+        fs.promises.unlink(path.join(dataDir, f)).catch(() => {}),
+      ),
+    )
   }
 
   const advanceSeq = async () => {

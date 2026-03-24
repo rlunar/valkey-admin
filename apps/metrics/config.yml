@@ -9,6 +9,11 @@ collector:
   batch_ms: 60000
   batch_max: 500
 
+# Each epic controls its own storage retention:
+#   data_retention_mb   – max disk space (MB) for this epic's .ndjson files.
+#                         Oldest files are evicted when the budget is exceeded.
+#   data_retention_days – files older than this (by birthtime) are deleted
+#                         during the daily cleanup sweep.
 epics:
   - name: "memory"
     type: "memory_stats"

@@ -10,6 +10,11 @@ const cfgPath = process.env.CONFIG_PATH || path.join(__dirname, "..", "config.ym
 
 let config = null
 
+/**
+ * Per-epic retention defaults, applied to any epic missing these fields.
+ * @property {number} data_retention_mb   – max disk budget (MB) per epic. Oldest files evicted when exceeded.
+ * @property {number} data_retention_days – files older than this (by birthtime) are deleted in the daily cleanup.
+ */
 const EPIC_DEFAULTS = { data_retention_mb: 10, data_retention_days: 30 }
 
 const DEFAULTS = {
