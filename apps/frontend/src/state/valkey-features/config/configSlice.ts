@@ -35,7 +35,7 @@ const initialState: ConfigState = {}
 const defaultConfig = (partial?: Partial<ConfigState[string]>): ConfigState[string] => ({
   darkMode: false,
   pollingInterval: 5000,
-  monitoring: { monitorEnabled: false, monitorDuration: 6000 },
+  monitoring: { monitorEnabled: false, monitorDuration: 10000 },
   status: "updated",
   errorMessage: null,
   ...partial, // merge any passed-in values
@@ -68,15 +68,13 @@ const configSlice = createSlice({
     updateConfigFulfilled: (state, action) => {
       const { connectionId, response } = action.payload
       if (!state[connectionId]) {
-        state[connectionId] = defaultConfig({ ...response.data, status: "updated" })
-        return
+        state[connectionId] = defaultConfig({ status: "updated" })
       }
-      state[connectionId] = {
-        ...state[connectionId],
-        ...response.data,
-        status: "updated",
-        errorMessage: null,
+      if (response.data?.epic?.monitoringDuration !== undefined) {
+        state[connectionId].monitoring.monitorDuration = response.data.epic.monitoringDuration
       }
+      state[connectionId].status = "updated"
+      state[connectionId].errorMessage = null
     },
 
     updateConfigFailed: (state, action) => {

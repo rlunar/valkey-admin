@@ -20,7 +20,7 @@ export default function Settings() {
   const dispatch = useAppDispatch()
 
   const [monitorEnabled, setMonitorEnabled] = useState(config?.monitoring?.monitorEnabled ?? false)
-  const [monitorDuration, setMonitorDuration] = useState(config?.monitoring?.monitorDuration ?? 6000)
+  const [monitorDuration, setMonitorDuration] = useState(config?.monitoring?.monitorDuration ?? 10000)
 
   useEffect(() => {
     if (config?.monitoring) {
@@ -35,7 +35,9 @@ export default function Settings() {
       monitorDuration !== config.monitoring.monitorDuration)
 
   const handleSave = () => {
-    dispatch(updateConfig({ connectionId: id!, clusterId, config: { monitoring: { monitorEnabled, monitorDuration } } }))
+    dispatch(updateConfig({ connectionId: id!, clusterId, config:
+       { epic: { name: "monitor", monitoringDuration: monitorDuration } },
+    }))
   }
   return (
     <RouteContainer className="p-4 relative min-h-screen flex flex-col">

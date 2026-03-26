@@ -91,7 +91,7 @@ async function main() {
   })
 
   app.get("/monitor", async (req, res) => {
-    const result = await monitorHandler(req.query.action)
+    const result = await monitorHandler(req.query.action, getConfig())
     return res.json(result)
   })
 
@@ -100,7 +100,7 @@ async function main() {
       const hotKeys = await calculateHotKeysFromHotSlots(client, req.query.count).then(enrichHotKeys(client))
       return res.json({ hotKeys })
     }
-    else useMonitor(req, res, cfg, client)
+    else useMonitor(req, res, getConfig(), client)
   })
 
   app.post("/update-config", async (req, res) => {

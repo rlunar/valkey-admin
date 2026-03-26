@@ -79,8 +79,26 @@ const updateConfig = (partialConfig) => {
     }
   }
 
-  const newConfig = mergeDeepLeft(partialConfig, getConfig())
-  setConfig(newConfig)
+  const cfg = getConfig()
+
+  if (partialConfig.epic) {
+    const { name, ...fields } = partialConfig.epic
+    const epicIndex = cfg.epics.findIndex((e) => e.name === name)
+    if (epicIndex === -1) {
+      return {
+        success: false,
+        statusCode: 400,
+        message: `Unknown epic: ${name}`,
+        data: {},
+      }
+    }
+    cfg.epics[epicIndex] = mergeDeepLeft(fields, cfg.epics[epicIndex])
+    setConfig(cfg)
+  } else {
+    const newConfig = mergeDeepLeft(partialConfig, cfg)
+    setConfig(newConfig)
+  }
+
   return {
     success: true,
     statusCode: 200,
@@ -101,25 +119,36 @@ const validatePartialConfig = (partialConfig) => {
     return new Error("pollingInterval must be a positive non-zero number")
   }
 
-  if (partialConfig.monitoring !== undefined) {
-    if (typeof partialConfig.monitoring !== "object" || Array.isArray(partialConfig.monitoring)) {
-      return new Error("monitoring must be an object")
+  if (partialConfig.epic !== undefined) {
+    if (typeof partialConfig.epic !== "object" || Array.isArray(partialConfig.epic)) {
+      return new Error("epic must be an object")
     }
 
-    const { monitorEnabled, monitorDuration } = partialConfig.monitoring
+    const { name, monitoringDuration, monitoringInterval, maxCommandsPerRun } = partialConfig.epic
 
-    if (
-      monitorEnabled !== undefined &&
-      typeof monitorEnabled !== "boolean"
-    ) {
-      return new Error("monitorEnabled must be a boolean")
+    if (typeof name !== "string" || name.length === 0) {
+      return new Error("epic.name must be a non-empty string")
     }
 
     if (
-      monitorDuration !== undefined &&
-      !isPositiveNumber(monitorDuration)
+      monitoringDuration !== undefined &&
+      !isPositiveNumber(monitoringDuration)
     ) {
-      return new Error("monitorDuration must be a positive non-zero number")
+      return new Error("monitoringDuration must be a positive non-zero number")
+    }
+
+    if (
+      monitoringInterval !== undefined &&
+      !isPositiveNumber(monitoringInterval)
+    ) {
+      return new Error("monitoringInterval must be a positive non-zero number")
+    }
+
+    if (
+      maxCommandsPerRun !== undefined &&
+      !isPositiveNumber(maxCommandsPerRun)
+    ) {
+      return new Error("maxCommandsPerRun must be a positive non-zero number")
     }
   }
 

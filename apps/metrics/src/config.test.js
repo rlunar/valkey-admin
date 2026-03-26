@@ -51,10 +51,13 @@ describe("config", () => {
       expect(result.success).toBe(true)
     })
 
-    it("should accept valid config with monitoring object", async () => {
+    it("should accept valid config with epic object", async () => {
+      YAML.parse.mockReturnValue({
+        epics: [{ name: "monitor", monitoringDuration: 10000 }],
+      })
       const { updateConfig } = await import("./config.js")
       const result = updateConfig({
-        monitoring: { monitorEnabled: true, monitorDuration: 1000 },
+        epic: { name: "monitor", monitoringDuration: 15000 },
       })
       expect(result.success).toBe(true)
     })
@@ -84,43 +87,65 @@ describe("config", () => {
       expect(updateConfig({ pollingInterval: Infinity }).success).toBe(false)
     })
 
-    it("should reject invalid monitoring object", async () => {
+    it("should reject invalid epic object", async () => {
       const { updateConfig } = await import("./config.js")
 
-      expect(updateConfig({ monitoring: "not an object" }).success).toBe(false)
-      expect(updateConfig({ monitoring: "not an object" }).message).toContain(
-        "monitoring must be an object",
+      expect(updateConfig({ epic: "not an object" }).success).toBe(false)
+      expect(updateConfig({ epic: "not an object" }).message).toContain(
+        "epic must be an object",
       )
 
-      expect(updateConfig({ monitoring: 123 }).success).toBe(false)
-      expect(updateConfig({ monitoring: [] }).success).toBe(false)
+      expect(updateConfig({ epic: 123 }).success).toBe(false)
+      expect(updateConfig({ epic: [] }).success).toBe(false)
     })
 
-    it("should reject invalid monitoring fields", async () => {
+    it("should reject epic without name", async () => {
       const { updateConfig } = await import("./config.js")
 
-      // Invalid monitorEnabled (not boolean)
-      expect(
-        updateConfig({ monitoring: { monitorEnabled: "true" } }).success,
-      ).toBe(false)
-      expect(
-        updateConfig({ monitoring: { monitorEnabled: 1 } }).message,
-      ).toContain("monitorEnabled must be a boolean")
+      expect(updateConfig({ epic: {} }).success).toBe(false)
+      expect(updateConfig({ epic: {} }).message).toContain("epic.name must be a non-empty string")
 
-      // Invalid monitorDuration (0, negative, non-number)
+      expect(updateConfig({ epic: { name: "" } }).success).toBe(false)
+      expect(updateConfig({ epic: { name: 123 } }).success).toBe(false)
+    })
+
+    it("should reject invalid epic fields", async () => {
+      const { updateConfig } = await import("./config.js")
+
+      // Invalid monitoringDuration (0, negative, non-number)
       expect(
-        updateConfig({ monitoring: { monitorDuration: 0 } }).success,
+        updateConfig({ epic: { name: "monitor", monitoringDuration: 0 } }).success,
       ).toBe(false)
       expect(
-        updateConfig({ monitoring: { monitorDuration: -100 } }).message,
-      ).toContain("monitorDuration must be a positive")
+        updateConfig({ epic: { name: "monitor", monitoringDuration: -100 } }).message,
+      ).toContain("monitoringDuration must be a positive")
 
       expect(
-        updateConfig({ monitoring: { monitorDuration: NaN } }).success,
+        updateConfig({ epic: { name: "monitor", monitoringDuration: NaN } }).success,
       ).toBe(false)
       expect(
-        updateConfig({ monitoring: { monitorDuration: "1000" } }).success,
+        updateConfig({ epic: { name: "monitor", monitoringDuration: "1000" } }).success,
       ).toBe(false)
+
+      // Invalid monitoringInterval
+      expect(
+        updateConfig({ epic: { name: "monitor", monitoringInterval: 0 } }).success,
+      ).toBe(false)
+
+      // Invalid maxCommandsPerRun
+      expect(
+        updateConfig({ epic: { name: "monitor", maxCommandsPerRun: -1 } }).success,
+      ).toBe(false)
+    })
+
+    it("should reject unknown epic name", async () => {
+      YAML.parse.mockReturnValue({
+        epics: [{ name: "monitor" }],
+      })
+      const { updateConfig } = await import("./config.js")
+      const result = updateConfig({ epic: { name: "nonexistent", monitoringDuration: 5000 } })
+      expect(result.success).toBe(false)
+      expect(result.message).toContain("Unknown epic")
     })
   })
 
