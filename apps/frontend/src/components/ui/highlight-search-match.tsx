@@ -10,7 +10,7 @@ export function HighlightSearchMatch({ text, query }: HighlightMatchProps) {
   return (
     <span>
       {text.slice(0, idx)}
-      <span className="bg-primary/30 dark:bg-primary/50">
+      <span className="bg-primary text-white">
         {text.slice(idx, idx + query.length)}
       </span>
       {text.slice(idx + query.length)}
