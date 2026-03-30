@@ -10,9 +10,9 @@ export const selectConfig = (id: string) => (state: RootState) =>
 
 interface MonitorConfig {
   // How long to monitor before stopping (ms)
-  monitorDuration: number,
+  monitoringDuration: number,
   // How long to wait before monitoring again when using continuous mode (ms)
-  monitorInterval: number,
+  monitoringInterval: number,
 }
 interface ConfigState {
   [connectionId: string]: {
@@ -20,7 +20,6 @@ interface ConfigState {
     // Valkey related. TODO: find best way to expose to user
     keyEvictionPolicy?: KeyEvictionPolicy
     clusterSlotStatsEnabled?: boolean,
-    pollingInterval: number, 
     monitoring: MonitorConfig
     status: UpdateStatus
     errorMessage?: string | null
@@ -29,8 +28,7 @@ interface ConfigState {
 const initialState: ConfigState = {}
 const defaultConfig = (partial?: Partial<ConfigState[string]>): ConfigState[string] => ({
   darkMode: false,
-  pollingInterval: 5000,
-  monitoring: { monitorDuration: 10000, monitorInterval: 10000 },
+  monitoring: { monitoringDuration: 10000, monitoringInterval: 10000 },
   status: "updated",
   errorMessage: null,
   ...partial, // merge any passed-in values
@@ -63,14 +61,20 @@ const configSlice = createSlice({
     updateConfigFulfilled: (state, action) => {
       const { connectionId, response } = action.payload
       if (!state[connectionId]) {
-        state[connectionId] = defaultConfig({ status: "updated" })
+        state[connectionId] = defaultConfig()
       }
-      if (response.data?.epic?.monitoringDuration !== undefined) {
-        state[connectionId].monitoring.monitorDuration = response.data.epic.monitoringDuration
+
+      if (response.data?.epic) {
+        const updatedMonitoringConfig = R.pick(
+          Object.keys(defaultConfig().monitoring),
+          response.data.epic,
+        )
+        state[connectionId].monitoring = {
+          ...state[connectionId].monitoring,
+          ...updatedMonitoringConfig,
+        }
       }
-      if (response.data?.epic?.monitoringInterval !== undefined) {
-        state[connectionId].monitoring.monitorInterval = response.data.epic.monitoringInterval
-      }
+
       state[connectionId].status = "updated"
       state[connectionId].errorMessage = null
     },

@@ -78,9 +78,7 @@ const updateConfig = (partialConfig) => {
       data: validationError,
     }
   }
-
   const cfg = getConfig()
-
   if (partialConfig.epic) {
     const { name, ...fields } = partialConfig.epic
     const epicIndex = cfg.epics.findIndex((e) => e.name === name)
@@ -92,8 +90,9 @@ const updateConfig = (partialConfig) => {
         data: {},
       }
     }
-    cfg.epics[epicIndex] = mergeDeepLeft(fields, cfg.epics[epicIndex])
-    setConfig(cfg)
+    const newConfig = structuredClone(cfg)
+    newConfig.epics[epicIndex] = mergeDeepLeft(fields, newConfig.epics[epicIndex])
+    setConfig(newConfig)
   } else {
     const newConfig = mergeDeepLeft(partialConfig, cfg)
     setConfig(newConfig)
@@ -110,13 +109,6 @@ const updateConfig = (partialConfig) => {
 const validatePartialConfig = (partialConfig) => {
   if (partialConfig == null || typeof partialConfig !== "object" || Array.isArray(partialConfig)) {
     return new Error("Config update must be an object")
-  }
-
-  if (
-    partialConfig.pollingInterval !== undefined &&
-    !isPositiveNumber(partialConfig.pollingInterval)
-  ) {
-    return new Error("pollingInterval must be a positive non-zero number")
   }
 
   if (partialConfig.epic !== undefined) {

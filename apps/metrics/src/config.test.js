@@ -45,12 +45,6 @@ describe("config", () => {
   })
 
   describe("validatePartialConfig", () => {
-    it("should accept valid config with pollingInterval", async () => {
-      const { updateConfig } = await import("./config.js")
-      const result = updateConfig({ pollingInterval: 5000 })
-      expect(result.success).toBe(true)
-    })
-
     it("should accept valid config with epic object", async () => {
       YAML.parse.mockReturnValue({
         epics: [{ name: "monitor", monitoringDuration: 10000 }],
@@ -71,20 +65,6 @@ describe("config", () => {
       expect(updateConfig("string").success).toBe(false)
       expect(updateConfig(123).success).toBe(false)
       expect(updateConfig([]).success).toBe(false)
-    })
-
-    it("should reject invalid pollingInterval values", async () => {
-      const { updateConfig } = await import("./config.js")
-
-      expect(updateConfig({ pollingInterval: 0 }).success).toBe(false)
-      expect(updateConfig({ pollingInterval: 0 }).message).toContain(
-        "pollingInterval must be a positive",
-      )
-
-      expect(updateConfig({ pollingInterval: -100 }).success).toBe(false)
-      expect(updateConfig({ pollingInterval: NaN }).success).toBe(false)
-      expect(updateConfig({ pollingInterval: "1000" }).success).toBe(false)
-      expect(updateConfig({ pollingInterval: Infinity }).success).toBe(false)
     })
 
     it("should reject invalid epic object", async () => {
@@ -267,7 +247,7 @@ describe("config", () => {
 
     it("should return error response for invalid config", async () => {
       const { updateConfig } = await import("./config.js")
-      const result = updateConfig({ pollingInterval: -1 })
+      const result = updateConfig({ epic: "not an object" })
 
       expect(result.success).toBe(false)
       expect(result.statusCode).toBe(400)
@@ -277,7 +257,7 @@ describe("config", () => {
 
     it("should create temporary file before renaming (atomic write)", async () => {
       const { updateConfig } = await import("./config.js")
-      updateConfig({ pollingInterval: 5000 })
+      updateConfig({ server: { port: 5000 } })
 
       expect(fs.writeFileSync).toHaveBeenCalledWith(
         expect.stringContaining(".tmp"),

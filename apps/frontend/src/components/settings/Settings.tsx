@@ -20,20 +20,20 @@ export default function Settings() {
   const dispatch = useAppDispatch()
 
   const [monitorEnabled, setMonitorEnabled] = useState(false)
-  const [monitorDuration, setMonitorDuration] = useState(config?.monitoring?.monitorDuration ?? 10000)
-  const [monitorInterval, setMonitorInterval] = useState(config?.monitoring?.monitorInterval ?? 10000)
+  const [monitorDuration, setMonitorDuration] = useState(config?.monitoring?.monitoringDuration ?? 10000)
+  const [monitorInterval, setMonitorInterval] = useState(config?.monitoring?.monitoringInterval ?? 10000)
 
   useEffect(() => {
     if (config?.monitoring) {
-      setMonitorDuration(config.monitoring.monitorDuration)
-      setMonitorInterval(config.monitoring.monitorInterval)
+      setMonitorDuration(config.monitoring.monitoringDuration)
+      setMonitorInterval(config.monitoring.monitoringInterval)
     }
-  }, [config?.monitoring?.monitorDuration, config?.monitoring?.monitorInterval])
+  }, [config?.monitoring?.monitoringDuration, config?.monitoring?.monitoringInterval])
 
   const hasChanges =
     config?.monitoring &&
-    (monitorDuration !== config.monitoring.monitorDuration ||
-      monitorInterval !== config.monitoring.monitorInterval)
+    (monitorDuration !== config.monitoring.monitoringDuration ||
+      monitorInterval !== config.monitoring.monitoringInterval)
 
   const handleSave = () => {
     dispatch(updateConfig({ connectionId: id!, clusterId, config:
