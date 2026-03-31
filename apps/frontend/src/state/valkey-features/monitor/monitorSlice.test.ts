@@ -3,6 +3,7 @@ import monitorReducer, {
   monitorRequested,
   monitorFulfilled,
   monitorError,
+  saveMonitorSettingsRequested,
   selectMonitorRunning,
   selectMonitorLoading
 } from "./monitorSlice"
@@ -135,6 +136,35 @@ describe("monitorSlice", () => {
       )
 
       expect(state["nonexistent"]).toBeUndefined()
+    })
+  })
+
+  describe("saveMonitorSettingsRequested", () => {
+    it("should not change empty state", () => {
+      const state = monitorReducer(
+        initialState,
+        saveMonitorSettingsRequested({ connectionId: "conn-1", config: { epic: { name: "monitor" } }, monitorAction: "start" }),
+      )
+
+      expect(state).toEqual({})
+    })
+
+    it("should not change existing state", () => {
+      const previousState = {
+        "conn-1": {
+          monitorRunning: true,
+          checkAt: 12345,
+          loading: false,
+          error: null,
+        },
+      }
+
+      const state = monitorReducer(
+        previousState,
+        saveMonitorSettingsRequested({ connectionId: "conn-1", monitorAction: "stop" }),
+      )
+
+      expect(state["conn-1"]).toEqual(previousState["conn-1"])
     })
   })
 
