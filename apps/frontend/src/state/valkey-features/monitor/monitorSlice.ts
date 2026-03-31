@@ -1,5 +1,4 @@
 import { createSlice } from "@reduxjs/toolkit"
-import { type JSONObject } from "@common/src/json-utils"
 import { VALKEY } from "@common/src/constants.ts"
 import * as R from "ramda"
 import type { RootState } from "@/store.ts"
@@ -19,7 +18,7 @@ interface MonitorState {
     monitorRunning: boolean
     checkAt: number | null
     loading: boolean
-    error?: JSONObject | null
+    error?: string | null
   }
 }
 
