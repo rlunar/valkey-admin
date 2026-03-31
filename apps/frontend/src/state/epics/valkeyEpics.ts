@@ -30,7 +30,7 @@ import { setClusterData } from "../valkey-features/cluster/clusterSlice.ts"
 import { setConfig, updateConfig, updateConfigFulfilled } from "../valkey-features/config/configSlice.ts"
 import { cpuUsageRequested } from "../valkey-features/cpu/cpuSlice.ts"
 import { memoryUsageRequested } from "../valkey-features/memory/memorySlice.ts"
-import { monitorRequested } from "../valkey-features/monitor/monitorSlice.ts"
+import { monitorRequested, saveMonitorSettingsRequested } from "../valkey-features/monitor/monitorSlice.ts"
 import { secureStorage } from "../../utils/secureStorage.ts"
 import { selectIsAtConnectionLimit } from "../valkey-features/connection/connectionSelectors.ts"
 import type { Store } from "@reduxjs/toolkit"
@@ -446,6 +446,25 @@ export const monitorEpic = () =>
         })
       } catch (error) {
         console.error("[getMonitorStatusEpic] Error sending action:", error)
+      }
+    }),
+    ignoreElements(),
+  )
+
+export const saveMonitorSettingsEpic = () =>
+  action$.pipe(
+    select(saveMonitorSettingsRequested),
+    tap((action) => {
+      try {
+        const { connectionId, clusterId, config, monitorAction } = action.payload
+        const socket = getSocket()
+
+        socket.next({
+          type: action.type,
+          payload: { connectionId, clusterId, config, monitorAction },
+        })
+      } catch (error) {
+        console.error("[saveMonitorSettingsEpic] Error sending action:", error)
       }
     }),
     ignoreElements(),

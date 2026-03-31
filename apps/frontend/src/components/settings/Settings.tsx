@@ -1,9 +1,9 @@
 import { Cog, Save, AlertTriangle } from "lucide-react"
 import { useSelector } from "react-redux"
 import { useParams } from "react-router"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useState } from "react"
 import { TooltipProvider } from "@radix-ui/react-tooltip"
-import { MONITOR_ACTION, type MonitorAction } from "@common/src/constants"
+import { MONITOR_ACTION } from "@common/src/constants"
 import ThemeToggle from "../ui/theme-toggle"
 import { ButtonGroup } from "../ui/button-group"
 import RouteContainer from "../ui/route-container"
@@ -12,8 +12,8 @@ import { Input } from "../ui/input"
 import { Button } from "../ui/button"
 import { Typography } from "../ui/typography"
 import { useAppDispatch } from "@/hooks/hooks"
-import { selectConfig, updateConfig } from "@/state/valkey-features/config/configSlice"
-import { monitorRequested, selectMonitorRunning } from "@/state/valkey-features/monitor/monitorSlice"
+import { selectConfig } from "@/state/valkey-features/config/configSlice"
+import { monitorRequested, saveMonitorSettingsRequested, selectMonitorRunning } from "@/state/valkey-features/monitor/monitorSlice"
 
 export default function Settings() {
   const { id, clusterId } = useParams()
@@ -25,9 +25,6 @@ export default function Settings() {
   const [localMonitorEnabled, setLocalMonitorEnabled] = useState(monitorRunning)
   const [monitorDuration, setMonitorDuration] = useState(config?.monitoring?.monitoringDuration ?? 10000)
   const [monitorInterval, setMonitorInterval] = useState(config?.monitoring?.monitoringInterval ?? 10000)
-  const [pendingMonitorAction, setPendingMonitorAction] = useState<MonitorAction | null>(null)
-  const prevConfigStatus = useRef(config?.status)
-
   useEffect(() => {
     dispatch(monitorRequested({ connectionId: id!, clusterId, monitorAction: MONITOR_ACTION.STATUS }))
   }, [dispatch, id, clusterId])
@@ -43,14 +40,6 @@ export default function Settings() {
     }
   }, [config?.monitoring?.monitoringDuration, config?.monitoring?.monitoringInterval])
 
-  useEffect(() => {
-    if (prevConfigStatus.current === "updating" && config?.status === "updated" && pendingMonitorAction) {
-      dispatch(monitorRequested({ connectionId: id!, clusterId, monitorAction: pendingMonitorAction }))
-      setPendingMonitorAction(null)
-    }
-    prevConfigStatus.current = config?.status
-  }, [config?.status, pendingMonitorAction, dispatch, id, clusterId])
-
   const hasConfigChanges =
     config?.monitoring &&
     (monitorDuration !== config.monitoring.monitoringDuration ||
@@ -59,22 +48,15 @@ export default function Settings() {
   const hasMonitorToggleChanged = localMonitorEnabled !== monitorRunning
 
   const handleSave = () => {
-    const nextMonitorAction = hasMonitorToggleChanged
+    const monitorAction = hasMonitorToggleChanged
       ? (localMonitorEnabled ? MONITOR_ACTION.START : MONITOR_ACTION.STOP)
-      : null
+      : undefined
 
-    if (hasConfigChanges) {
-      dispatch(updateConfig({ connectionId: id!, clusterId, config:
-         { epic: { name: "monitor", monitoringDuration: monitorDuration, monitoringInterval: monitorInterval } },
-      }))
-      // Defer monitor action until config update completes
-      if (nextMonitorAction) {
-        setPendingMonitorAction(nextMonitorAction)
-      }
-    } else if (nextMonitorAction) {
-      // No config changes — dispatch monitor action directly
-      dispatch(monitorRequested({ connectionId: id!, clusterId, monitorAction: nextMonitorAction }))
-    }
+    const configPayload = hasConfigChanges
+      ? { epic: { name: "monitor", monitoringDuration: monitorDuration, monitoringInterval: monitorInterval } }
+      : undefined
+
+    dispatch(saveMonitorSettingsRequested({ connectionId: id!, clusterId, config: configPayload, monitorAction }))
   }
   return (
     <RouteContainer className="p-4 relative min-h-screen flex flex-col">

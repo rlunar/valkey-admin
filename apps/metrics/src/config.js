@@ -81,6 +81,7 @@ const updateConfig = (partialConfig) => {
   const cfg = getConfig()
   
   if (partialConfig.epic) {
+    // TODO: use zod for validation
     const { name, ...fields } = partialConfig.epic
     const epicIndex = cfg.epics.findIndex((e) => e.name === name)
     if (epicIndex === -1) {

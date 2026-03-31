@@ -53,6 +53,10 @@ const monitorSlice = createSlice({
       state[connectionId].loading = false
       state[connectionId].error = null
     },
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    saveMonitorSettingsRequested: (state, action) => {
+      // no-op: exists to generate the action creator for the epic
+    },
     monitorError: (state, action) => {
       const { connectionId, error } = action.payload
       if (state[connectionId]) {
@@ -68,4 +72,5 @@ export const {
   monitorRequested,
   monitorFulfilled,
   monitorError,
+  saveMonitorSettingsRequested,
 } = monitorSlice.actions

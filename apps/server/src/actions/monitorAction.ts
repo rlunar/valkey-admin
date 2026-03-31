@@ -1,6 +1,7 @@
 import { type WebSocket } from "ws"
 import { VALKEY, type MonitorAction } from "valkey-common"
-import { withDeps, Deps, fetchWithTimeout } from "./utils"
+import { withDeps, type Deps, fetchWithTimeout, type ReduxAction } from "./utils"
+import { updateConfig } from "./config"
 
 type MonitorResponse = {
   monitorRunning: boolean
@@ -72,4 +73,28 @@ export const monitorRequested = withDeps<Deps, void>(
       }
     })
     await Promise.all(promises)
+  })
+
+export const saveMonitorSettingsRequested = withDeps<Deps, void>(
+  async ({ ws, clients, connectionId, metricsServerMap, clusterNodesMap, action }) => {
+    const deps: Deps = { ws, clients, connectionId, metricsServerMap, clusterNodesMap }
+    const { config, monitorAction } = action.payload
+
+    if (config) {
+      const configSubAction: ReduxAction = {
+        type: VALKEY.CONFIG.updateConfig,
+        payload: { connectionId: action.payload.connectionId, clusterId: action.payload.clusterId, config },
+        meta: action.meta,
+      }
+      await updateConfig(deps)(configSubAction)
+    }
+
+    if (monitorAction) {
+      const monitorSubAction: ReduxAction = {
+        type: VALKEY.MONITOR.monitorRequested,
+        payload: { connectionId: action.payload.connectionId, clusterId: action.payload.clusterId, monitorAction },
+        meta: action.meta,
+      }
+      await monitorRequested(deps)(monitorSubAction)
+    }
   })

@@ -94,6 +94,7 @@ export const VALKEY = {
     monitorRequested: "monitorRequested",
     monitorFulfilled: "monitorFulfilled",
     monitorError: "monitorError",
+    saveMonitorSettingsRequested: "saveMonitorSettingsRequested",
   }),
 } as const
 
