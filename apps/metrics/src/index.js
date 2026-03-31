@@ -93,6 +93,7 @@ async function main() {
 
   app.get("/monitor", async (req, res) => {
     const result = await monitorHandler(req.query.action, getConfig())
+    if (result.error) return res.status(500).json(result)
     return res.json(result)
   })
 
