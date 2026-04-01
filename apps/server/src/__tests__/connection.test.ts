@@ -240,7 +240,7 @@ describe("connectToValkey", () => {
       assert.ok(config)
       assert.deepStrictEqual(config.addresses, [{ host: DEFAULT_PAYLOAD.connectionDetails.host, port: DEFAULT_PAYLOAD.connectionDetails.port }])
       assert.strictEqual(config.requestTimeout, 5000)
-      assert.strictEqual(config.clientName, "test_client")
+      assert.strictEqual(config.clientName, "valkey_server_standalone_client")
       return mockStandaloneClient as any
     })
 

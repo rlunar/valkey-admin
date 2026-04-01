@@ -6,6 +6,7 @@ import path from "path"
 import { sanitizeUrl } from "valkey-common"
 import { discoverCluster, belongsToCluster } from "./connection"
 import { ConnectionDetails } from "./actions/connection"
+import { createOrchestratorValkeyClient } from "./valkey-client"
 
 // Assumes nodeId is unique among all clusters
 export type MetricsServerMap = Map<string,
@@ -146,19 +147,11 @@ async function connectToInitialValkeyNode(connectionDetails: ConnectionDetails) 
       password,
     } : undefined
 
-  const client = await GlideClient.createClient({
+  const client = await createOrchestratorValkeyClient({
     addresses,
     credentials,
     useTLS: tls,
-    ...(tls && !verifyTlsCertificate && {
-      advancedConfiguration: {
-        tlsAdvancedConfiguration: {
-          insecure: true,
-        },
-      },
-    }),
-    requestTimeout: 5000,
-    clientName: "test_client",
+    verifyTlsCertificate,
   })
 
   return client

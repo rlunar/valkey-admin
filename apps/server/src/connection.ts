@@ -7,6 +7,7 @@ import { parseInfo, resolveHostnameOrIpAddress } from "./utils"
 import { checkJsonModuleAvailability } from "./check-json-module"
 import { type ConnectionDetails } from "./actions/connection"
 import { MetricsServerMap, startMetricsServer } from "./metrics-orchestrator"
+import { createClusterValkeyClient, createStandaloneValkeyClient } from "./valkey-client"
 
 export async function connectToValkey(
   ws: WebSocket,
@@ -42,20 +43,11 @@ export async function connectToValkey(
       )
     }
     const useTLS = payload.connectionDetails.tls
-    const standaloneClient = await GlideClient.createClient({
+    const standaloneClient = await createStandaloneValkeyClient({
       addresses,
       credentials,
       useTLS,
-      ...(useTLS && payload.connectionDetails.verifyTlsCertificate === false && {
-        advancedConfiguration: {
-          tlsAdvancedConfiguration: {
-            insecure: true,
-          },
-        },
-      }),
-
-      requestTimeout: 5000,
-      clientName: "test_client",
+      verifyTlsCertificate: payload.connectionDetails.verifyTlsCertificate,
     })
     clients.set(payload.connectionId, { client: standaloneClient })
     // In cluster-orchestrator mode, metrics sidecars register themselves.
@@ -240,19 +232,11 @@ async function connectToCluster(
         payload: { clusterId, clusterNodes },
       }),
     )
-    clusterClient = await GlideClusterClient.createClient({
+    clusterClient = await createClusterValkeyClient({
       addresses,
       credentials,
       useTLS,
-      ...(useTLS && payload.connectionDetails.verifyTlsCertificate === false && {
-        advancedConfiguration: {
-          tlsAdvancedConfiguration: {
-            insecure: true,
-          },
-        },
-      }),
-      requestTimeout: 5000,
-      clientName: "cluster_client",
+      verifyTlsCertificate: payload.connectionDetails.verifyTlsCertificate,
     })
     clients.set(payload.connectionId, { client: clusterClient, clusterId })
     clusterNodesMap.set(clusterId, [payload.connectionId])
