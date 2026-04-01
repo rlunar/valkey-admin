@@ -45,10 +45,10 @@ export const createValkeyClient = async (cfg = {}) => {
   return mode === "cluster"
     ? GlideClusterClient.createClient({
       ...sharedOptions,
-      clientName: "metrics_cluster_client",
+      clientName: "valkey_admin_metrics_cluster_client",
     })
     : GlideClient.createClient({
       ...sharedOptions,
-      clientName: "metrics_standalone_client",
+      clientName: "valkey_admin_metrics_standalone_client",
     })
 }
