@@ -39,6 +39,14 @@ This builds the full desktop application with all features (hotkeys, commandlogs
 
 **For web development only:** Use `./quickstart-web.sh` for the development servers (limited features).
 
+### Kubernetes
+
+For Kubernetes, use the split deployment model documented in [k8s/README.md](./k8s/README.md):
+
+- `docker/Dockerfile.server` builds the frontend + server deployment image
+- `docker/Dockerfile.metrics` builds the metrics sidecar image
+- `docker/Dockerfile.app` remains the single-image option for non-k8s environments
+
 ### Running the Built Desktop App
 
 After building, launch the desktop app:

@@ -2,59 +2,167 @@ import * as R from "ramda"
 import { InfoOptions } from "@valkey/valkey-glide"
 import { COMMANDLOG_LARGE_REQUEST, COMMANDLOG_SLOW, COMMANDLOG_TYPE, COMMANDLOG_LARGE_REPLY } from "../utils/constants.js"
 import { parseCommandLogs } from "../utils/helpers.js"
+import { createLogger } from "../utils/logger.js"
 
 // todo a proper schema; all this parsing logic with `kv` and `kvPairsToRows` feels extremely fragile
 const kvPairsToRows = R.curry((ts, pairs) =>
   pairs.map(([k, v]) => ({ ts, metric: String(k).replace(/\./g, "_"), value: Number(v) })))
+const log = createLogger("fetchers")
+const debugMetrics = process.env.DEBUG_METRICS === "1"
+
+const getPreferredNodeKey = () => {
+  const host = process.env.VALKEY_HOST
+  const port = process.env.VALKEY_PORT
+  return host && port ? `${host}:${port}` : null
+}
+
+const normalizeNodeScopedResponse = (result) => {
+  if (Array.isArray(result) || typeof result === "string" || result == null) {
+    return result
+  }
+
+  if (typeof result === "object") {
+    const preferredNodeKey = getPreferredNodeKey()
+    if (preferredNodeKey && preferredNodeKey in result) {
+      return result[preferredNodeKey]
+    }
+
+    const firstValue = Object.values(result)[0]
+    return firstValue ?? result
+  }
+
+  return result
+}
+
+const normalizeMemoryStatsEntries = (result) => {
+  if (result && typeof result === "object" && !Array.isArray(result)) {
+    return Object.entries(result)
+  }
+
+  if (!Array.isArray(result)) return []
+
+  // Some clients return [{ key, value }, ...]
+  if (result.every((entry) => entry && typeof entry === "object" && "key" in entry && "value" in entry)) {
+    return result.map(({ key, value }) => [key, value])
+  }
+
+  // Some clients may already return [[key, value], ...]
+  if (result.every((entry) => Array.isArray(entry) && entry.length >= 2)) {
+    return result.map(([key, value]) => [key, value])
+  }
+
+  // Valkey MEMORY STATS commonly returns [key1, value1, key2, value2, ...]
+  const pairs = []
+  for (let i = 0; i < result.length - 1; i += 2) {
+    pairs.push([result[i], result[i + 1]])
+  }
+  return pairs
+}
+
+const parseInfoToPairs = (raw) =>
+  R.pipe(
+    R.defaultTo(""),
+    R.split(/\r?\n/),
+    R.into(
+      [],
+      R.compose(
+        R.map(R.trim),
+        R.reject(R.either(R.isEmpty, R.startsWith("#"))),
+        R.filter(R.includes(":")),
+        R.map((line) => line.split(":", 2)),
+      ),
+    ),
+  )(raw)
+
+const parseKeyCount = (raw) => {
+  const keyspacePairs = parseInfoToPairs(raw)
+  const db0 = keyspacePairs.find(([key]) => key === "db0")?.[1]
+  if (!db0) return null
+
+  const keysMatch = String(db0).match(/keys=(\d+)/)
+  return keysMatch ? Number(keysMatch[1]) : null
+}
 
 export const makeFetcher = (client) => ({
   memory_stats: async () => {
-    const result = await client.customCommand(["MEMORY", "STATS"])
+    const memoryInfo = normalizeNodeScopedResponse(
+      await client.info([InfoOptions.Memory]),
+    )
+    const keyspaceInfo = normalizeNodeScopedResponse(
+      await client.info([InfoOptions.Keyspace]),
+    )
+    if (debugMetrics) {
+      log.info("[memory_stats] raw info preview", String(memoryInfo).split(/\r?\n/).slice(0, 20).join("\n"))
+      log.info("[memory_stats] raw keyspace preview", String(keyspaceInfo).split(/\r?\n/).slice(0, 10).join("\n"))
+    }
     const ts = Date.now()
-    return R.pipe(
-      R.defaultTo([]),
-      R.map(({ key, value }) => [key, +value]), // convert value to number
+    const metrics = Object.fromEntries(parseInfoToPairs(memoryInfo))
+    const keysCount = parseKeyCount(keyspaceInfo)
+    const derivedPairs = [
+      ["used_memory", metrics.used_memory],
+      ["allocator_active", metrics.allocator_active],
+      ["allocator_resident", metrics.allocator_resident],
+      ["peak_allocated", metrics.used_memory_peak],
+      ["dataset_bytes", metrics.used_memory_dataset],
+      ["overhead_total", metrics.used_memory_overhead],
+      ["dataset_percentage", metrics.used_memory_dataset_perc?.replace("%", "")],
+      ["fragmentation", metrics.mem_fragmentation_ratio],
+      ["fragmentation_bytes", metrics.mem_fragmentation_bytes],
+      ["allocator_rss_ratio", metrics.allocator_rss_ratio],
+      ["keys_count", keysCount],
+      [
+        "keys_bytes_per_key",
+        keysCount && Number(keysCount) > 0 && metrics.used_memory_dataset
+          ? Number(metrics.used_memory_dataset) / Number(keysCount)
+          : null,
+      ],
+    ]
+    const rows = R.pipe(
+      R.map(([key, value]) => [key, +value]),
       R.filter(([, v]) => Number.isFinite(v)), // remove NaN or non-numbers
       kvPairsToRows(ts),
-    )(result)
+    )(derivedPairs)
+    if (debugMetrics) {
+      log.info("[memory_stats] normalized row count", rows.length)
+      log.info("[memory_stats] normalized row preview", rows.slice(0, 10))
+    }
+    return rows
   },
 
   info_cpu: async () => {
-    const raw = await client.info([InfoOptions.Cpu])
+    const raw = normalizeNodeScopedResponse(
+      await client.info([InfoOptions.Cpu]),
+    )
     const ts = Date.now()
 
     return R.pipe(
-      R.split(/\r?\n/),
-      R.into(
-        [],
-        R.compose(
-          R.map(R.trim),
-          // section headers start with "#", like "# CPU", we don't need them — just like empty lines
-          R.reject(R.either(R.isEmpty, R.startsWith("#"))),
-          R.filter(R.includes(":")),
-          R.map((l) => l.split(":", 2)),
-          R.map(([k, v]) => [k, Number((v || "").trim())]),
-          R.filter(([, n]) => Number.isFinite(n)),
-        ),
-      ),
+      parseInfoToPairs,
+      R.map(([k, v]) => [k, Number((v || "").trim())]),
+      R.filter(([, n]) => Number.isFinite(n)),
       kvPairsToRows(ts),
     )(raw)
   },
 
   commandlog_slow: async (count = 50) => {
-    const entries = await client.customCommand(["COMMANDLOG", "GET", String(count), COMMANDLOG_TYPE.SLOW])
+    const entries = normalizeNodeScopedResponse(
+      await client.customCommand(["COMMANDLOG", "GET", String(count), COMMANDLOG_TYPE.SLOW]),
+    )
     const values = parseCommandLogs(entries, COMMANDLOG_TYPE.SLOW)
     return [{ ts: Date.now(), metric: COMMANDLOG_SLOW, values }]
   },
 
   commandlog_large_reply: async (count = 50) => {
-    const entries = await client.customCommand(["COMMANDLOG", "GET", String(count), COMMANDLOG_TYPE.LARGE_REPLY])
+    const entries = normalizeNodeScopedResponse(
+      await client.customCommand(["COMMANDLOG", "GET", String(count), COMMANDLOG_TYPE.LARGE_REPLY]),
+    )
     const values = parseCommandLogs(entries, COMMANDLOG_TYPE.LARGE_REPLY)
     return [{ ts: Date.now(), metric: COMMANDLOG_LARGE_REPLY, values }]
   },
 
   commandlog_large_request: async (count = 50) => {
-    const entries = await client.customCommand(["COMMANDLOG", "GET", String(count), COMMANDLOG_TYPE.LARGE_REQUEST])
+    const entries = normalizeNodeScopedResponse(
+      await client.customCommand(["COMMANDLOG", "GET", String(count), COMMANDLOG_TYPE.LARGE_REQUEST]),
+    )
     const values = parseCommandLogs(entries, COMMANDLOG_TYPE.LARGE_REQUEST)
     return [{ ts: Date.now(), metric: COMMANDLOG_LARGE_REQUEST, values }]
   },

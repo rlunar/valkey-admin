@@ -58,8 +58,10 @@ export async function connectToValkey(
       clientName: "test_client",
     })
     clients.set(payload.connectionId, { client: standaloneClient })
-    // Only start metrics server if it hasn't been started before
-    if (!metricsServerMap.has(payload.connectionId)) await startMetricsServer(payload.connectionDetails, payload.connectionId)
+    // In cluster-orchestrator mode, metrics sidecars register themselves.
+    if (process.env.USE_CLUSTER_ORCHESTRATOR !== "true" && !metricsServerMap.has(payload.connectionId)) {
+      await startMetricsServer(payload.connectionDetails, payload.connectionId)
+    }
 
     const evictionPolicyResponse = await standaloneClient.customCommand(["CONFIG", "GET", "maxmemory-policy"]) as [{key: string, value: string}]
     const keyEvictionPolicy: KeyEvictionPolicy = evictionPolicyResponse[0].value.toLowerCase() as KeyEvictionPolicy
@@ -197,7 +199,7 @@ async function connectToCluster(
 
   // Check if we've already connected to this cluster before 
   const existingKey = Object.keys(clusterNodes).find(
-    (key) => clients.get(key) instanceof GlideClusterClient,
+    (key) => clients.get(key)?.client instanceof GlideClusterClient,
   )
 
   const existingConnection = existingKey
