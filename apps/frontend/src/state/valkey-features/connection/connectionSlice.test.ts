@@ -48,13 +48,15 @@ describe("connectionSlice", () => {
           port: "6379",
           username: "admin",
           password: "secret",
-          tls: false, 
+          tls: false,
           verifyTlsCertificate: false,
           alias: "Test",
           clusterSlotStatsEnabled: false,
           jsonModuleAvailable: false,
         },
+        searchableText: "conn-1 localhost 6379 admin test",
         wasEdit: false,
+        connectionHistory: undefined,
       })
     })
 
@@ -558,6 +560,36 @@ describe("connectionSlice", () => {
       expect(state.connections["conn-1"].connectionDetails.alias).toBe("Updated")
       expect(state.connections["conn-1"].connectionDetails.host).toBe("newhost")
       expect(state.connections["conn-1"].connectionDetails.port).toBe("6379") // Unchanged
+    })
+
+    it("should not leak connectionId into connectionDetails", () => {
+      const previousState = {
+        connections: {
+          "conn-1": {
+            status: CONNECTED,
+            errorMessage: null,
+            connectionDetails: { host: "localhost",
+              port: "6379", username: "", password: "ENC_PW", tls: false, verifyTlsCertificate: false, alias: "Old" },
+          },
+        } as ValkeyConnectionsState,
+      }
+
+      const state = connectionReducer(
+        previousState,
+        updateConnectionDetails({
+          connectionId: "conn-1",
+          host: "localhost",
+          port: "6379",
+          username: "",
+          password: "ENC_PW",
+          tls: false,
+          verifyTlsCertificate: false,
+          alias: "New Alias",
+        }),
+      )
+
+      expect(state.connections["conn-1"].connectionDetails.alias).toBe("New Alias")
+      expect(state.connections["conn-1"].connectionDetails).not.toHaveProperty("connectionId")
     })
   })
 

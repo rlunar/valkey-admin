@@ -14,7 +14,7 @@ import {
 } from "../metrics-orchestrator"
 import type { ConnectionDetails } from "../actions/connection"
 
-const clusterNodesRegistry = {
+const mockClusterNodesRegistry = {
   "cluster-1": {
     node1: {
       host: "127.0.0.1",
@@ -229,7 +229,7 @@ describe("metrics-orchestrator", () => {
         },
         clusterId: "cluster-1",
       }))
-      mock.method(__test__, "updateClusterNodeRegistry", async () => clusterNodesRegistry)
+      mock.method(__test__, "updateClusterNodeRegistry", async () => mockClusterNodesRegistry)
       mock.method(__test__, "updateMetricsServers", async () => {})
       mock.method(__test__, "findDiff", async () => ({ nodesToAdd: {}, nodesToRemove: [] }))
     })
@@ -239,27 +239,27 @@ describe("metrics-orchestrator", () => {
 
     it("should discover cluster if registry is empty", async () => {
       await reconcileClusterMetricsServers(
-        clusterNodesRegistry,metricsServerMap, connectionDetails, client)
+        mockClusterNodesRegistry,metricsServerMap, connectionDetails, client)
       assert.ok(clusterNodesRegistry["cluster-1"])
     })
 
     it("should call updateClusterNodeRegistry for existing clusters", async () => {
-      clusterNodesRegistry["cluster-1"] = {
+      mockClusterNodesRegistry["cluster-1"] = {
         node1: { host: "127.0.0.1", port: 6379, tls: false, verifyTlsCertificate: false },
       }
       await reconcileClusterMetricsServers(
-        clusterNodesRegistry,metricsServerMap, connectionDetails, client)
+        mockClusterNodesRegistry,metricsServerMap, connectionDetails, client)
       // Nothing should throw; mocks handle all calls
     })
 
     it("should early return if nothing changed", async () => {
       // findDiff mock returns empty changes
       mock.method(__test__, "findDiff", async () => ({ nodesToAdd: {}, nodesToRemove: [] }))
-      clusterNodesRegistry["cluster-1"] = {
+      mockClusterNodesRegistry["cluster-1"] = {
         node1: { host: "127.0.0.1", port: 6379, tls: false, verifyTlsCertificate: false },
       }
       await reconcileClusterMetricsServers(
-        clusterNodesRegistry,metricsServerMap, connectionDetails, client)
+        mockClusterNodesRegistry,metricsServerMap, connectionDetails, client)
       // updateMetricsServers should not be called because nothing changed
     })
   })

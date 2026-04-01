@@ -90,6 +90,7 @@ export function createMetricsOrchestratorRouter() {
     if (nodeBelongsToCluster || nodeConnected)  {
       const now = Date.now()  
       const entry = metricsServerMap.get(nodeId)
+      console.log(`Metrics server registered for ${nodeId} at ${metricsServerUri}`)
       // If we spawned the metrics process using the orchestrator
       if (entry) {
         entry.metricsURI = metricsServerUri 
@@ -263,7 +264,7 @@ export async function startMetricsServer(nodeToStart: ClusterNodeInfo, nodeId: s
     ? path.join(processResourcesPath, "config.yml")
     : fileURLToPath(new URL("../../metrics/config.yml", import.meta.url))
 
-  const data_dir = process.env.DATA_DIR ?? "/app/data"
+  const data_dir = process.env.DATA_DIR ?? path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "data")
 
   console.log("Starting metrics server for: ", nodeId)
   const proc: ChildProcess = spawn(process.execPath, [metricsServerPath], {

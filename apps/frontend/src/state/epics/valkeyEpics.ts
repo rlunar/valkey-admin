@@ -30,6 +30,7 @@ import { setClusterData } from "../valkey-features/cluster/clusterSlice.ts"
 import { setConfig, updateConfig, updateConfigFulfilled } from "../valkey-features/config/configSlice.ts"
 import { cpuUsageRequested } from "../valkey-features/cpu/cpuSlice.ts"
 import { memoryUsageRequested } from "../valkey-features/memory/memorySlice.ts"
+import { monitorRequested, saveMonitorSettingsRequested } from "../valkey-features/monitor/monitorSlice.ts"
 import { secureStorage } from "../../utils/secureStorage.ts"
 import { selectIsAtConnectionLimit } from "../valkey-features/connection/connectionSelectors.ts"
 import type { Store } from "@reduxjs/toolkit"
@@ -69,7 +70,7 @@ export const connectionEpic = (store: Store) =>
           type === standaloneConnectFulfilled.type ||
           type === clusterConnectFulfilled.type,
       ),
-      tap(async ({ payload }) => {
+      tap(({ payload }) => {
         try {
           const currentConnections = getCurrentConnections()
 
@@ -80,15 +81,10 @@ export const connectionEpic = (store: Store) =>
             connection?.connectionDetails ?? payload.connectionDetails
 
           const connectionToSave = {
-            connectionDetails: R.isNil(R.path(["password"], baseConnectionDetails))
-              ? baseConnectionDetails
-              : R.assoc(
-                "password",
-                await secureStorage.encrypt(baseConnectionDetails.password),
-                baseConnectionDetails,
-              ),
+            connectionDetails: baseConnectionDetails,
             status: NOT_CONNECTED,
             connectionHistory: connection?.connectionHistory ?? [],
+            searchableText: connection?.searchableText ?? "",
           }
 
           currentConnections[payload.connectionId] = connectionToSave
@@ -287,7 +283,7 @@ export const deleteConnectionEpic = () =>
 export const updateConnectionDetailsEpic = (store: Store) =>
   action$.pipe(
     select(updateConnectionDetails),
-    tap(async ({ payload: { connectionId } }) => {
+    tap(({ payload: { connectionId } }) => {
       try {
         const currentConnections = getCurrentConnections()
 
@@ -295,16 +291,9 @@ export const updateConnectionDetailsEpic = (store: Store) =>
         const connection = state.valkeyConnection?.connections?.[connectionId]
 
         if (connection && currentConnections[connectionId]) {
-          const connectionDetails = connection.connectionDetails.password
-            ? R.assoc(
-              "password",
-              await secureStorage.encrypt(connection.connectionDetails.password),
-              connection.connectionDetails,
-            )
-            : connection.connectionDetails
-          
-          currentConnections[connectionId].connectionDetails = connectionDetails
+          currentConnections[connectionId].connectionDetails = connection.connectionDetails
           currentConnections[connectionId].connectionHistory = connection.connectionHistory || []
+          currentConnections[connectionId].searchableText = connection.searchableText ?? ""
           localStorage.setItem(LOCAL_STORAGE.VALKEY_CONNECTIONS, JSON.stringify(currentConnections))
         }
       } catch (e) {
@@ -357,7 +346,7 @@ export const getHotKeysEpic = (store: Store) =>
       const state = store.getState()
       const connection = state.valkeyConnection.connections[connectionId]
       const monitorEnabled = state.config[connectionId].monitoring.monitorEnabled
-      const lfuEnabled = connection.connectionDetails.keyEvictionPolicy.includes("lfu") ?? false
+      const lfuEnabled = connection.connectionDetails.keyEvictionPolicy?.includes("lfu") ?? false
       const clusterSlotStatsEnabled = connection.connectionDetails.clusterSlotStatsEnabled ?? false
 
       socket.next({
@@ -440,6 +429,44 @@ export const getMemoryUsageEpic = () =>
         })
       } catch (error) {
         console.error("[getMemoryUsageEpic] Error sending action:", error)
+      }
+    }),
+    ignoreElements(),
+  )
+
+export const monitorEpic = () =>
+  action$.pipe(
+    select(monitorRequested),
+    tap((action) => {
+      try {
+        const { connectionId, clusterId, monitorAction } = action.payload
+        const socket = getSocket()
+
+        socket.next({
+          type: action.type,
+          payload: { connectionId, clusterId, monitorAction },
+        })
+      } catch (error) {
+        console.error("[getMonitorStatusEpic] Error sending action:", error)
+      }
+    }),
+    ignoreElements(),
+  )
+
+export const saveMonitorSettingsEpic = () =>
+  action$.pipe(
+    select(saveMonitorSettingsRequested),
+    tap((action) => {
+      try {
+        const { connectionId, clusterId, config, monitorAction } = action.payload
+        const socket = getSocket()
+
+        socket.next({
+          type: action.type,
+          payload: { connectionId, clusterId, config, monitorAction },
+        })
+      } catch (error) {
+        console.error("[saveMonitorSettingsEpic] Error sending action:", error)
       }
     }),
     ignoreElements(),

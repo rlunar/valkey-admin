@@ -4,7 +4,7 @@ import { getConfig, updateConfig } from "./config.js"
 import * as Streamer from "./effects/ndjson-streamer.js"
 import { setupCollectors, stopCollectors } from "./init-collectors.js"
 import { getCommandLogs } from "./handlers/commandlog-handler.js"
-import { monitorHandler, useMonitor } from "./handlers/monitor-handler.js"
+import { monitorHandler, readMonitorMetadata, useMonitor } from "./handlers/monitor-handler.js"
 import { calculateHotKeysFromHotSlots } from "./analyzers/calculate-hot-keys.js"
 import { enrichHotKeys } from "./analyzers/enrich-hot-keys.js"
 import cpuFold from "./analyzers/calculate-cpu-usage.js"
@@ -13,6 +13,7 @@ import { cpuQuerySchema, memoryQuerySchema, parseQuery } from "./api-schema.js"
 import { sanitizeUrl } from "./utils/helpers.js"
 import { setupNdjsonCleaner, stopNdjsonCleaner } from "./effects/ndjson-cleaner.js"
 import { createValkeyClient } from "./valkey-client.js"
+import { ACTION, MONITOR } from "./utils/constants.js"
 
 async function main() {
   const cfg = getConfig()
@@ -69,7 +70,8 @@ async function main() {
   })
 
   app.get("/monitor", async (req, res) => {
-    const result = await monitorHandler(req.query.action)
+    const result = await monitorHandler(req.query.action, getConfig())
+    if (result.error) return res.status(500).json(result)
     return res.json(result)
   })
 
@@ -78,12 +80,21 @@ async function main() {
       const hotKeys = await calculateHotKeysFromHotSlots(client, req.query.count).then(enrichHotKeys(client))
       return res.json({ hotKeys })
     }
-    else useMonitor(req, res, cfg, client)
+    else useMonitor(req, res, getConfig(), client)
   })
 
   app.post("/update-config", async (req, res) => {
     try {
       const result = updateConfig(req.body)
+
+      if (result.success && result.data.epic?.name === MONITOR) {
+        const { isRunning } = readMonitorMetadata()
+        if (isRunning) {
+          await monitorHandler(ACTION.STOP, getConfig())
+          await monitorHandler(ACTION.START, getConfig())
+        }
+      }
+
       return res.status(result.statusCode).json(result)
     }
     catch (error) {
@@ -98,13 +109,13 @@ async function main() {
   app.post("/connection/close", async (req, res) => {
     try {
       const { connectionId } = req.body
-      client.close()
       if (connectionId !== ownConnectionId) {
         return res.status(400).json({
           ok: false,
           error: "Invalid connectionId",
         })
       }
+      client.close()
       res.status(200).json({
         ok: true,
         connectionId,

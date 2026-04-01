@@ -21,6 +21,7 @@ import { commandLogsRequested } from "./actions/commandLogs"
 import { updateConfig, enableClusterSlotStats } from "./actions/config"
 import { cpuUsageRequested } from "./actions/cpuUsage"
 import { memoryUsageRequested } from "./actions/memoryUsage"
+import { monitorRequested, saveMonitorSettingsRequested } from "./actions/monitorAction"
 import { Handler, ReduxAction, unknownHandler, type WsActionMessage } from "./actions/utils"
 import {
   createMetricsOrchestratorRouter,
@@ -33,6 +34,10 @@ import {
   getInitialClient
 } from "./metrics-orchestrator"
 import type { Request, Response } from "express"
+
+interface AliveWebSocket extends WebSocket {
+  isAlive: boolean
+}
 
 interface MetricsServerMessage {
   type: string
@@ -102,8 +107,18 @@ server.listen(port, () => {
   }
 })
 
-wss.on("connection", (ws: WebSocket) => {
+const interval = setInterval(() => {
+  wss.clients.forEach((ws) => {
+    const aliveSocket = ws as AliveWebSocket
+    if (aliveSocket.isAlive === false) return ws.terminate()
+    aliveSocket.isAlive = false
+    ws.ping()
+  })
+}, 30000)
+wss.on("connection", (ws: AliveWebSocket) => {
   console.log("Client connected.")
+  ws.isAlive = true
+  ws.on("pong", () => {ws.isAlive = true})
   // This is a simplified cluster node map that stores clusterIds and their corresponding nodeIds
   const clusterNodesMap: Map<string, string[]> = new Map()
 
@@ -125,6 +140,8 @@ wss.on("connection", (ws: WebSocket) => {
     [VALKEY.CONFIG.enableClusterSlotStats]: enableClusterSlotStats,
     [VALKEY.CPU.cpuUsageRequested]: cpuUsageRequested,
     [VALKEY.MEMORY.memoryUsageRequested]: memoryUsageRequested,
+    [VALKEY.MONITOR.monitorRequested]: monitorRequested,
+    [VALKEY.MONITOR.saveMonitorSettingsRequested]: saveMonitorSettingsRequested,
   }
 
   process.on("message", (message: MetricsServerMessage) => {
@@ -191,7 +208,7 @@ wss.on("connection", (ws: WebSocket) => {
 
 function shutdown() {
   console.log("Shutdown signal received")
-
+  clearInterval(interval)
   // Close websocket clients
   wss.clients.forEach((ws) => {
     try {
