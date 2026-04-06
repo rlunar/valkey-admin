@@ -54,12 +54,7 @@ export const closeConnection = withDeps<Deps, void>(
     }))
 
     const nodes = clusterNodesMap.get(clusterId!)
-    if (process.env.USE_CLUSTER_ORCHESTRATOR !== "true") {
-      closeMetricsServer(connectionId, metricsServerMap)
-    }
-    if (connection && await canSafelyDisconnect(connectionId, connection, clients, clusterNodesMap)){
-      await closeClient(connectionId, connection.client, ws)
-    }
+
     // Remove node from cluster map accordingly
     if (clusterId && nodes) {
       if (nodes.length === 1) {

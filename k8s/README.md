@@ -196,6 +196,13 @@ Then open:
 http://localhost:8080
 ```
 
+The app server connects to the Valkey node configured in [k8s/app.yaml](/Users/arsenyk/Documents/valkey-skyscope/k8s/app.yaml):
+
+```text
+VALKEY_HOST=valkey-0.valkey-headless.valkey.svc.cluster.local
+VALKEY_PORT=6379
+```
+
 ## Development Iteration Loop
 
 When you change the metrics sidecar:
