@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { useSelector } from "react-redux"
-import { Activity, RefreshCcw } from "lucide-react"
+import { Activity, RefreshCcw, Settings } from "lucide-react"
 import { useParams } from "react-router"
 import { COMMANDLOG_TYPE } from "@common/src/constants"
 import { truncateText } from "@common/src/truncate-text"
@@ -11,8 +11,11 @@ import { TabGroup } from "../ui/tab-group"
 import { ButtonGroup } from "../ui/button-group"
 import { HotKeys } from "./hotkeys/hot-keys"
 import { HotKeysParamsModal } from "./hotkeys/hot-keys-params-modal"
+import { HotSlotsParamsModal } from "./hotkeys/hot-slots-params-modal"
 import { BigKeys } from "./bigkeys/big-keys"
+import { BigKeysParamsModal } from "./bigkeys/big-keys-params-modal"
 import { CommandLogTable } from "./command-log-table"
+import { CommandLogsParamsModal } from "./command-logs-params-modal"
 import KeyDetails from "../key-browser/key-details/key-details"
 import RouteContainer from "../ui/route-container"
 import { Button } from "../ui/button"
@@ -58,6 +61,14 @@ export const ActivityView = () => {
   const [commandLogSubTab, setCommandLogSubTab] = useState<CommandLogSubTab>("slow")
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
   const [configOpen, setConfigOpen] = useState(false)
+  const [hotSlotsConfigOpen, setHotSlotsConfigOpen] = useState(false)
+  const [hotKeysTopN, setHotKeysTopN] = useState(50)
+  const [bigKeysConfigOpen, setBigKeysConfigOpen] = useState(false)
+  // config values for big keys scan settings, which can be adjusted in the modal
+  const [bigKeysScanLimit, setBigKeysScanLimit] = useState(10000)
+  const [bigKeysTopN, setBigKeysTopN] = useState(50)
+  const [commandLogsConfigOpen, setCommandLogsConfigOpen] = useState(false)
+  const [commandLogsTopN, setCommandLogsTopN] = useState(100)
 
   // `targetId` keys node-level metrics state: `clusterId` for a cluster, else
   // the db-less `nodeId`. (Connection-scoped state below still uses `id`, the
@@ -91,43 +102,55 @@ export const ActivityView = () => {
   useEffect(() => {
     if (id) {
       dispatch(monitorRequested({ connectionId: id!, clusterId, monitorAction: MONITOR_ACTION.STATUS }))
-      dispatch(commandLogsRequested({ connectionId: id, commandLogType: COMMANDLOG_TYPE.SLOW, clusterId }))
-      dispatch(commandLogsRequested({ connectionId: id, commandLogType: COMMANDLOG_TYPE.LARGE_REQUEST, clusterId }))
-      dispatch(commandLogsRequested({ connectionId: id, commandLogType: COMMANDLOG_TYPE.LARGE_REPLY, clusterId }))
-      dispatch(hotKeysRequested({ connectionId: id, clusterId }))
     }
   }, [id, clusterId, dispatch])
 
   useEffect(() => {
     if (id) {
-      dispatch(hotKeysRequested({ connectionId: id, clusterId }))
+      dispatch(hotKeysRequested({ connectionId: id, clusterId, count: hotKeysTopN }))
     }
-  }, [monitorRunning, id, clusterId, dispatch])
+  }, [monitorRunning, id, clusterId, hotKeysTopN, dispatch])
+
+  useEffect(() => {
+    if (id) {
+      dispatch(commandLogsRequested({ connectionId: id, commandLogType: COMMANDLOG_TYPE.SLOW, clusterId, count: commandLogsTopN }))
+      dispatch(commandLogsRequested({ connectionId: id, commandLogType: COMMANDLOG_TYPE.LARGE_REQUEST, clusterId, count: commandLogsTopN }))
+      dispatch(commandLogsRequested({ connectionId: id, commandLogType: COMMANDLOG_TYPE.LARGE_REPLY, clusterId, count: commandLogsTopN }))
+    }
+  }, [id, clusterId, commandLogsTopN, dispatch])
 
   const refreshCommandLogs = () => {
     if (id) {
-      dispatch(commandLogsRequested({ connectionId: id, commandLogType: COMMANDLOG_TYPE.SLOW, clusterId }))
-      dispatch(commandLogsRequested({ connectionId: id, commandLogType: COMMANDLOG_TYPE.LARGE_REQUEST, clusterId }))
-      dispatch(commandLogsRequested({ connectionId: id, commandLogType: COMMANDLOG_TYPE.LARGE_REPLY, clusterId }))
+      dispatch(commandLogsRequested({ connectionId: id, commandLogType: COMMANDLOG_TYPE.SLOW, clusterId, count: commandLogsTopN }))
+      dispatch(commandLogsRequested({ connectionId: id, commandLogType: COMMANDLOG_TYPE.LARGE_REQUEST, clusterId, count: commandLogsTopN }))
+      dispatch(commandLogsRequested({ connectionId: id, commandLogType: COMMANDLOG_TYPE.LARGE_REPLY, clusterId, count: commandLogsTopN }))
     }
   }
 
   const refreshHotKeys = () => {
     if (id) {
-      dispatch(hotKeysRequested({ connectionId: id, clusterId }))
+      dispatch(hotKeysRequested({ connectionId: id, clusterId, count: hotKeysTopN }))
     }
   }
 
   // Big keys are scanned on demand - they get fetched when the tab is opened
   useEffect(() => {
     if (id && activeTab === "big-keys" && bigKeysStatus === undefined) {
-      dispatch(bigKeysRequested({ connectionId: id, clusterId }))
+      dispatch(bigKeysRequested({ connectionId: id, clusterId, scanLimit: bigKeysScanLimit, topN: bigKeysTopN }))
     }
-  }, [activeTab, bigKeysStatus, id, clusterId, dispatch])
+  }, [activeTab, bigKeysStatus, id, clusterId, bigKeysScanLimit, bigKeysTopN, dispatch])
 
   const refreshBigKeys = () => {
     if (id) {
-      dispatch(bigKeysRequested({ connectionId: id, clusterId }))
+      dispatch(bigKeysRequested({ connectionId: id, clusterId, scanLimit: bigKeysScanLimit, topN: bigKeysTopN }))
+    }
+  }
+
+  const scanBigKeys = ({ scanLimit, topN }: { scanLimit: number; topN: number }) => {
+    setBigKeysScanLimit(scanLimit)
+    setBigKeysTopN(topN)
+    if (id) {
+      dispatch(bigKeysRequested({ connectionId: id, clusterId, scanLimit, topN }))
     }
   }
 
@@ -175,6 +198,25 @@ export const ActivityView = () => {
   return (
     <RouteContainer title="Activity">
       <HotKeysParamsModal onClose={() => setConfigOpen(false)} open={configOpen} />
+      <HotSlotsParamsModal
+        onApply={({ topN }) => setHotKeysTopN(topN)}
+        onClose={() => setHotSlotsConfigOpen(false)}
+        open={hotSlotsConfigOpen}
+        topN={hotKeysTopN}
+      />
+      <BigKeysParamsModal
+        onClose={() => setBigKeysConfigOpen(false)}
+        onScan={scanBigKeys}
+        open={bigKeysConfigOpen}
+        scanLimit={bigKeysScanLimit}
+        topN={bigKeysTopN}
+      />
+      <CommandLogsParamsModal
+        onApply={({ topN }) => setCommandLogsTopN(topN)}
+        onClose={() => setCommandLogsConfigOpen(false)}
+        open={commandLogsConfigOpen}
+        topN={commandLogsTopN}
+      />
       <AppHeader
         description={
           <>
@@ -204,12 +246,22 @@ export const ActivityView = () => {
                 Last collected at: {new Date(hotKeysLastCollectedAt).toLocaleString()}
               </Typography>
             )}
+            {useHotSlots && (
+              <Button
+                aria-label="Hot slots config"
+                onClick={() => setHotSlotsConfigOpen(true)}
+                size={"sm"}
+                variant={"outline"}
+              >
+                <Settings className="hover:text-primary" size={15} />
+              </Button>
+            )}
             <Button
               onClick={refreshHotKeys}
               size={"sm"}
               variant={"outline"}
             >
-              Refresh <RefreshCcw className="hover:text-primary" size={15} />
+              <RefreshCcw className="hover:text-primary" size={15} />
             </Button>
           </div>
         )}
@@ -220,14 +272,25 @@ export const ActivityView = () => {
             {bigKeysScanned !== null && bigKeysTotalKeys !== null && (
               <Typography variant="bodyXs">
                 Scanned {bigKeysScanned.toLocaleString()} of {bigKeysTotalKeys.toLocaleString()} keys
+                {bigKeysData.length >= bigKeysTopN
+                  ? ` | showing top ${bigKeysTopN}`
+                  : ` | showing all ${bigKeysData.length}`}
               </Typography>
             )}
+            <Button
+              aria-label="Scan settings"
+              onClick={() => setBigKeysConfigOpen(true)}
+              size={"sm"}
+              variant={"outline"}
+            >
+              <Settings className="hover:text-primary" size={15} />
+            </Button>
             <Button
               onClick={refreshBigKeys}
               size={"sm"}
               variant={"outline"}
             >
-              Refresh <RefreshCcw className="hover:text-primary" size={15} />
+              <RefreshCcw className="hover:text-primary" size={15} />
             </Button>
           </div>
         )}
@@ -241,13 +304,21 @@ export const ActivityView = () => {
               value={commandLogSubTab}
             />
 
-            {/* Refresh Button */}
+            <Button
+              aria-label="Command log config"
+              onClick={() => setCommandLogsConfigOpen(true)}
+              size={"sm"}
+              variant={"outline"}
+            >
+              <Settings className="hover:text-primary" size={15} />
+            </Button>
+
             <Button
               onClick={refreshCommandLogs}
               size={"sm"}
               variant={"outline"}
             >
-              Refresh <RefreshCcw className="hover:text-primary" size={15} />
+              <RefreshCcw className="hover:text-primary" size={15} />
             </Button>
           </div>
         )}

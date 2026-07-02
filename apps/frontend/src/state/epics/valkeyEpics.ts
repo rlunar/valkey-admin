@@ -424,7 +424,7 @@ export const getHotKeysEpic = (store: Store) =>
   action$.pipe(
     select(hotKeysRequested),
     tap((action) => {
-      const { connectionId, clusterId } = action.payload
+      const { connectionId, clusterId, count } = action.payload
       const socket = getSocket()
       const state = store.getState()
       const connection = state.valkeyConnection.connections[connectionId]
@@ -433,7 +433,7 @@ export const getHotKeysEpic = (store: Store) =>
 
       socket.next({
         type: action.type,
-        payload: { connectionId, clusterId, lfuEnabled, clusterSlotStatsEnabled },
+        payload: { connectionId, clusterId, lfuEnabled, clusterSlotStatsEnabled, count },
       })
 
     }),
@@ -444,11 +444,11 @@ export const getCommandLogsEpic = () =>
     select(commandLogsRequested),
     tap((action) => {
       try {
-        const { commandLogType, connectionId, clusterId } = action.payload
+        const { commandLogType, connectionId, clusterId, count } = action.payload
         const socket = getSocket()
         socket.next({
           type: action.type,
-          payload: { connectionId, clusterId, commandLogType },
+          payload: { connectionId, clusterId, commandLogType, count },
         })
       } catch (error) {
         console.error("[getCommandLogsEpic] Error sending action:", error)
@@ -462,11 +462,11 @@ export const getBigKeysEpic = () =>
     select(bigKeysRequested),
     tap((action) => {
       try {
-        const { connectionId, clusterId } = action.payload
+        const { connectionId, clusterId, scanLimit, topN } = action.payload
         const socket = getSocket()
         socket.next({
           type: action.type,
-          payload: { connectionId, clusterId },
+          payload: { connectionId, clusterId, scanLimit, topN },
         })
       } catch (error) {
         console.error("[getBigKeysEpic] Error sending action:", error)
