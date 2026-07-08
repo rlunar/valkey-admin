@@ -7,15 +7,17 @@ import { TableContainer } from "../../ui/table-container"
 import { SortableTableHeader, StaticTableHeader, type SortOrder } from "../../ui/sortable-table-header"
 import { Typography } from "../../ui/typography"
 import { CustomTooltip } from "../../ui/tooltip"
+import { TooltipIcon } from "../../ui/tooltip-icon"
 import type { BigKey } from "@/state/valkey-features/bigkeys/bigKeysSlice"
 import { copyToClipboard } from "@/lib/utils"
 
 interface BigKeyRowProps {
   entry: BigKey
+  showFrequency: boolean
 }
 
-function BigKeyRow({ entry }: BigKeyRowProps) {
-  const { key, sizeBytes, type, ttl, nodeId } = entry
+function BigKeyRow({ entry, showFrequency }: BigKeyRowProps) {
+  const { key, sizeBytes, type, ttl, freq, nodeId } = entry
 
   const handleCopy = () => {
     copyToClipboard(key)
@@ -24,7 +26,7 @@ function BigKeyRow({ entry }: BigKeyRowProps) {
 
   return (
     <tr className="group border-b dark:border-tw-dark-border transition-all duration-200 hover:bg-gray-50 dark:hover:bg-neutral-800/50">
-      <td className="px-4 py-3 w-1/3">
+      <td className="px-4 py-3">
         <div className="flex items-center gap-2">
           <Typography className="truncate" variant="code">{key}</Typography>
           <button
@@ -36,16 +38,21 @@ function BigKeyRow({ entry }: BigKeyRowProps) {
           </button>
         </div>
       </td>
-      <td className="px-4 py-3 w-1/6 text-center">
+      <td className="px-4 py-3 w-[15%] text-center">
         <Typography variant="code">{type}</Typography>
       </td>
-      <td className="px-4 py-3 w-1/6 text-center">
+      <td className="px-4 py-3 w-[15%] text-center">
         <Typography variant="bodySm">{formatBytes(sizeBytes)}</Typography>
       </td>
-      <td className="px-4 py-3 w-1/6 text-center">
+      {showFrequency && (
+        <td className="px-4 py-3 w-[15%] text-center">
+          <Typography variant="bodySm">{freq ?? "—"}</Typography>
+        </td>
+      )}
+      <td className="px-4 py-3 w-[15%] text-center">
         <Typography variant="bodySm">{convertTTL(ttl)}</Typography>
       </td>
-      <td className="px-4 py-3 w-1/6 text-center">
+      <td className="px-4 py-3 w-[15%] text-center">
         <CustomTooltip content={nodeId ?? "-"}>
           <Typography variant="code">{truncateText(nodeId ?? "—")}</Typography>
         </CustomTooltip>
@@ -62,7 +69,7 @@ interface NoMatchRowProps {
 function NoMatchRow({ searchQuery, selectedNode }: NoMatchRowProps) {
   return (
     <tr>
-      <td className="px-4 py-8 text-center" colSpan={5}>
+      <td className="px-4 py-8 text-center" colSpan={6}>
         <Typography variant="bodySm">
           No keys match
           {searchQuery && (
@@ -77,16 +84,20 @@ function NoMatchRow({ searchQuery, selectedNode }: NoMatchRowProps) {
   )
 }
 
+export type BigKeysSortKey = "sizeBytes" | "freq"
+
 interface BigKeysTableProps {
   rows: BigKey[]
+  sortKey: BigKeysSortKey
   sortOrder: SortOrder
-  onToggleSort: () => void
+  onSort: (key: BigKeysSortKey) => void
   searchQuery: string
   selectedNode: string
+  showFrequency: boolean
 }
 
 export function BigKeysTable({
-  rows, sortOrder, onToggleSort, searchQuery, selectedNode,
+  rows, sortKey, sortOrder, onSort, searchQuery, selectedNode, showFrequency,
 }: BigKeysTableProps) {
   return (
     <TableContainer
@@ -95,19 +106,38 @@ export function BigKeysTable({
           <StaticTableHeader
             icon={<KeyRound className="text-primary" size={16} />}
             label="Key Name"
-            width="w-1/3"
+            width="flex-1"
           />
-          <StaticTableHeader className="text-center" label="Type" width="w-1/6" />
+          <StaticTableHeader className="text-center" label="Type" width="w-[15%]" />
           <SortableTableHeader
-            active={true}
+            active={sortKey === "sizeBytes"}
             className="text-center"
             label="Size"
-            onClick={onToggleSort}
+            onClick={() => onSort("sizeBytes")}
             sortOrder={sortOrder}
-            width="w-1/6"
+            width="w-[15%]"
           />
-          <StaticTableHeader className="text-center" label="TTL" width="w-1/6" />
-          <StaticTableHeader className="text-center" label="Node" width="w-1/6" />
+          {showFrequency && (
+            <SortableTableHeader
+              active={sortKey === "freq"}
+              className="text-center"
+              label={
+                <span className="flex items-center gap-1">
+                  Frequency
+                  <TooltipIcon
+                    description="Access frequency from OBJECT FREQ. Higher means accessed more often. 
+                    Requires an LFU maxmemory-policy; otherwise unavailable."
+                    size={14}
+                  />
+                </span>
+              }
+              onClick={() => onSort("freq")}
+              sortOrder={sortOrder}
+              width="w-[15%]"
+            />
+          )}
+          <StaticTableHeader className="text-center" label="TTL" width="w-[15%]" />
+          <StaticTableHeader className="text-center" label="Node" width="w-[15%]" />
         </>
       }
     >
@@ -118,6 +148,7 @@ export function BigKeysTable({
           <BigKeyRow
             entry={entry}
             key={`${entry.key}-${index}`}
+            showFrequency={showFrequency}
           />
         ))
       )}
