@@ -3,6 +3,7 @@ import { wsConnectionEpic } from "./wsEpics"
 import {
   connectionEpic,
   sendRequestEpic,
+  persistCommandsEpic,
   setDataEpic,
   deleteConnectionEpic,
   updateConnectionDetailsEpic,
@@ -31,6 +32,7 @@ export const registerEpics = (store: Store) => {
     deleteConnectionEpic(),
     updateConnectionDetailsEpic(store),
     sendRequestEpic(),
+    persistCommandsEpic(store),
     setDataEpic(store),
     getHotKeysEpic(store),
     getBigKeysEpic(),
