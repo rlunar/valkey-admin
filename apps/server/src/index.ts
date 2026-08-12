@@ -310,7 +310,6 @@ wss.on("connection", (ws: AliveWebSocket) => {
   ws.on("close", (code, reason) => {
     abortConfigSessionsForSocket(ws)
     const removedIds = unsubscribeAll(ws)
-    connectedNodesByCluster.clear()
     console.log("Client disconnected. Reason:", code, reason.toString())
 
     const scheduled = new Set(removedIds)
@@ -339,24 +338,42 @@ wss.on("connection", (ws: AliveWebSocket) => {
 function shutdown() {
   console.log("Shutdown signal received")
   clearInterval(interval)
-  // Close websocket clients
-  wss.clients.forEach((ws) => {
-    try {
-      ws.close()
-    } catch (err) {
-      console.error("Error closing WebSocket client", err)
-    }
-  })
 
-  server.close(() => {
+  const forceExitTimeout = setTimeout(() => {
+    console.error("Graceful shutdown timed out, forcing exit")
+    process.exit(1)
+  }, 10000)
+  forceExitTimeout.unref()
+
+  // Step 1: Stop accepting new connections (non-blocking, sets up drain callback)
+  server.close(async () => {
+    // Step 4: All connections drained — kill metrics servers and exit
     console.log("HTTP server closed")
     try {
-      cleanupOrchestratorResources()
+      await cleanupOrchestratorResources()
     } catch (err) {
       console.error("Error during orchestrator resource cleanup", err)
     }
     process.exit(0)
   })
+
+  // Step 2: Close all WebSocket clients (triggers drain so server.close callback can fire)
+  wss.clients.forEach((ws) => {
+    try {
+      ws.close()
+    } catch (err) {
+      console.error("Error closing WebSocket client:", err)
+    }
+  })
+
+  // Step 3: Close all Valkey clients (releases connections on the Valkey side)
+  for (const [, { client }] of clients) {
+    try {
+      client.close()
+    } catch (err) {
+      console.error("Error closing Valkey client:", err)
+    }
+  }
 }
 // Not sure if this will impact kubernetes use case
 process.on("SIGINT", shutdown)
