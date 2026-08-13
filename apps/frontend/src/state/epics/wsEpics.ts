@@ -26,14 +26,19 @@ import {
 
 let socket$: WebSocketSubject<PayloadAction> | null = null
 
-const isElectron = window.location.protocol === "file:"
-const isHttps = window.location.protocol === "https:"
+const getWebsocketURL = () => {
+  // If it's an Electron deployment
+  if (window.location.protocol === "file:") {
+    return "ws://localhost:8080"
+  }
+  
+  const protocol = window.location.protocol === "https:" ? "wss" : "ws"
+  return `${protocol}://${window.location.host}${window.location.pathname}`
+}
 
 const url =
   import.meta.env.VITE_VALKEY_ADMIN_WS_URL ||
-  (isElectron
-    ? "ws://localhost:8080"
-    : `${isHttps ? "wss" : "ws"}://${window.location.host}`)
+  getWebsocketURL()
 
 const connect = (store: Store) =>
   action$.pipe(
