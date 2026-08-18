@@ -12,6 +12,7 @@ import {
   ChartPie
 } from "lucide-react"
 import { truncateText } from "@common/src/truncate-text"
+import { toScanPattern } from "@common/src/scan-pattern"
 import { AppHeader } from "../ui/app-header"
 import { ChartModal } from "../ui/chart-modal"
 import DonutChart from "../ui/donut-chart"
@@ -75,7 +76,7 @@ export function KeyBrowser() {
     if (id) {
       dispatch(getKeysRequested({
         connectionId: id,
-        pattern: searchPattern || "*",
+        pattern: toScanPattern(searchPattern),
       }))
     }
   }
@@ -208,7 +209,7 @@ export function KeyBrowser() {
             disabled={loading}
             onChange={(e) => setSearchPattern(e.target.value)}
             onClear={handleClearSearch}
-            placeholder="Search keys (use * to search patterns like user:* and press Enter)"
+            placeholder="Search keys (supports glob: * ? [ ])"
             value={searchPattern}
           />
         </form>
