@@ -59,29 +59,21 @@ export function NodeErrorsBanner({ nodeErrors, label = "Hot keys" }: NodeErrorsB
 }
 
 interface MonitorNotRunningBannerProps {
-  onStartMonitoring: () => void
   error?: string | null
 }
 
-export function MonitorNotRunningBanner({ onStartMonitoring, error }: MonitorNotRunningBannerProps) {
+export function MonitorNotRunningBanner({ error }: MonitorNotRunningBannerProps) {
   return (
     <div className="m-3 p-3 bg-red-50 dark:bg-red-900/20 rounded-md border
-      border-red-200 dark:border-red-700 flex items-start gap-2">
-      <AlertCircle className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
-      <Typography variant="bodySm">
-        {error
-          ? <>Monitor failed: {error}</>
-          : <>Monitor is not running. Showing last known data.{" "}
-            <button
-              className="text-primary underline hover:opacity-80"
-              onClick={onStartMonitoring}
-              type="button"
-            >
-              Start MONITOR
-            </button>
-          </>
-        }
-      </Typography>
+      border-red-200 dark:border-red-700 flex items-center gap-2">
+      <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
+      {error ? (
+        <Typography variant="bodySm">Monitor failed: {error}</Typography>
+      ) : (
+        <Typography variant="bodySm">
+          Monitor is not running. Showing last known data.
+        </Typography>
+      )}
     </div>
   )
 }
